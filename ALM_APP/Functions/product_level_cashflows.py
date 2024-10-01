@@ -22,8 +22,9 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
         print(f"Process '{process_name}' does not exist.")
         return
 
-    # Step 3: Delete existing data for the same fic_mis_date and process_name
+    # Step 3: Delete existing data for the same fic_mis_date and process_name in relevant tables
     AggregatedCashflowByBuckets.objects.filter(fic_mis_date=fic_mis_date, process_name=process_name).delete()
+    TimeBucketMaster.objects.filter(process_name=process_name).delete()
 
     # Step 4: Fetch the TimeBuckets (neutral, not process specific)
     time_buckets = TimeBuckets.objects.all().order_by('serial_number')
@@ -92,7 +93,11 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
                 # Move to the next bucket, where the end date of the current bucket becomes the start date for the next bucket
                 bucket_start_date = bucket_end_date + timedelta(days=1)
 
-            # Step 10: Store aggregated values in AggregatedCashflowByBuckets
+            # Step 10: Store aggregated values in AggregatedCashflowByBuckets with foreign key reference to TimeBucketMaster
+            time_bucket_master = TimeBucketMaster.objects.filter(
+                process_name=process_name
+            ).first()
+
             AggregatedCashflowByBuckets.objects.update_or_create(
                 fic_mis_date=fic_mis_date,
                 process_name=process_name,  # Process filter helps identify records
@@ -100,7 +105,10 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
                 v_prod_code=product_code,
                 v_ccy_code=currency_code,
                 financial_element=element,
-                defaults=bucket_data  # Save all the bucket sums dynamically
+                defaults={
+                    **bucket_data,  # Save all the bucket sums dynamically
+                    'time_bucket_master': time_bucket_master  # Foreign key to TimeBucketMaster
+                }
             )
 
     print(f"Successfully aggregated cashflows for process '{process_name}' and fic_mis_date {fic_mis_date}.")

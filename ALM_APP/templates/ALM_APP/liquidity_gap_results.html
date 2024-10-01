@@ -1,0 +1,65 @@
+{% block content %}
+<h2>Liquidity Gap Detail - Product in Consolidated Currency</h2>
+
+<p>Results for the selected fic_mis_date: {{ fic_mis_date }}</p>
+
+<table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Account Type</th>
+            <th>Product Name</th>
+            <!-- Loop over the bucket headers -->
+            {% for record in data.0.buckets %}
+                <th>{{ record.bucket_start_date }} - {{ record.bucket_end_date }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Total Inflows -->
+        <tr>
+            <td rowspan="{{ inflows_rowspan }}">Total Inflows</td>
+            {% for inflow in inflows %}
+            <tr>
+                <td>{{ inflow.product_name }}</td>
+                {% for bucket in inflow.buckets %}
+                    <td>{{ bucket.inflows }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tr>
+
+        <!-- Total Outflows -->
+        <tr>
+            <td rowspan="{{ outflows_rowspan }}">Total Outflows</td>
+            {% for outflow in outflows %}
+            <tr>
+                <td>{{ outflow.product_name }}</td>
+                {% for bucket in outflow.buckets %}
+                    <td>{{ bucket.outflows }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tr>
+
+        <!-- Net Liquidity Gap -->
+        <tr>
+            <td colspan="2">Net Liquidity Gap</td>
+            {% for product in data %}
+                {% for bucket in product.buckets %}
+                    <td>{{ bucket.net_liquidity_gap }}</td>
+                {% endfor %}
+            {% endfor %}
+        </tr>
+
+        <!-- Cumulative Gap -->
+        <tr>
+            <td colspan="2">Cumulative Gap</td>
+            {% for product in data %}
+                {% for bucket in product.buckets %}
+                    <td>{{ bucket.cumulative_gap }}</td>
+                {% endfor %}
+            {% endfor %}
+        </tr>
+    </tbody>
+</table>
+{% endblock %}

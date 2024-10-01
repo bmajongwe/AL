@@ -458,6 +458,8 @@ class AggregatedCashflowByBuckets(models.Model):
     v_prod_code = models.CharField(max_length=50)  # Product code to identify the product
     v_ccy_code = models.CharField(max_length=10, null=True, blank=True)  # Optional currency code
     financial_element = models.CharField(max_length=50)  # Either 'n_total_cash_flow_amount', 'n_total_principal_payment', or 'n_total_interest_payment'
+     # Foreign Key to TimeBucketMaster
+    time_bucket_master = models.ForeignKey(TimeBucketMaster, on_delete=models.CASCADE, null=True)
     bucket_1 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 1
     bucket_2 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 2
     bucket_3 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 3
@@ -515,6 +517,92 @@ class AggregatedCashflowByBuckets(models.Model):
     def __str__(self):
         return f"{self.process_name} - Account: {self.v_account_number} ({self.financial_element})"
 
+class Aggregated_Prod_Cashflow_Base(models.Model):
+    fic_mis_date = models.DateField()  # The base date from product_level_cashflows
+    process_name = models.CharField(max_length=100)  # Process name to identify different cashflow processes
+    v_prod_code = models.CharField(max_length=50)  # Product code  being aggregated
+    v_ccy_code = models.CharField(max_length=10, null=False, blank=False)  #  currency code
+    financial_element = models.CharField(max_length=50)  # Either 'n_total_cash_flow_amount', 'n_total_principal_payment', or 'n_total_interest_payment'
+    # Foreign Key to AggregatedCashflowByBucket
+    cashflow_by_bucket = models.ForeignKey(AggregatedCashflowByBuckets, on_delete=models.CASCADE, null=True)
+
+    # Foreign Key to TimeBucketMaster
+    time_bucket_master = models.ForeignKey(TimeBucketMaster, on_delete=models.CASCADE, null=True)
+
+    bucket_1 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 1
+    bucket_2 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 2
+    bucket_3 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 3
+    bucket_4 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 4
+    bucket_5 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 5
+    bucket_6 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 6
+    bucket_7 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 7
+    bucket_8 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 8
+    bucket_9 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 9
+    bucket_10 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 10
+    bucket_11 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 11
+    bucket_12 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 12
+    bucket_13= models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 13
+    bucket_14 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 14
+    bucket_15= models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 15
+    bucket_16 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 16
+    bucket_17 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 17
+    bucket_18 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 18
+    bucket_19= models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 19
+    bucket_20= models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 20
+    bucket_21 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 21
+    bucket_22 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 22
+    bucket_23= models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 23
+    bucket_24 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 24
+    bucket_25 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 25
+    bucket_26 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 26
+    bucket_27 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 27
+    bucket_28 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 28
+    bucket_29 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 29
+    bucket_30 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 30
+    bucket_31 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 31
+    bucket_32 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 32
+    bucket_33 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 33
+    bucket_34 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 34
+    bucket_35 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 35
+    bucket_36 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 36
+    bucket_37 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 37
+    bucket_38 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 38
+    bucket_39 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 39
+    bucket_40 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 40
+    bucket_41 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 41
+    bucket_42 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 42
+    bucket_43 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 43
+    bucket_44 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 44
+    bucket_45 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 45
+    bucket_46 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 46
+    bucket_47 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 47
+    bucket_48 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 48
+    bucket_49 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 49
+    bucket_50 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 50
+
+    class Meta:
+        unique_together = ('fic_mis_date', 'process_name', 'financial_element')  # Ensure uniqueness
+
+    def __str__(self):
+        return f"{self.process_name} - Account: {self.v_prod_code} ({self.financial_element})"
+    
+
+class LiquidityGapResultsBase(models.Model):
+    fic_mis_date = models.DateField()  # Ensure this exists
+    process_name = models.CharField(max_length=100)  # Ensure this exists
+    account_type = models.CharField(max_length=20)
+    product_name = models.CharField(max_length=255)
+    v_prod_code = models.CharField(max_length=50)
+    v_ccy_code = models.CharField(max_length=10)
+    bucket_start_date = models.DateField()
+    bucket_end_date = models.DateField()
+    inflows = models.DecimalField(max_digits=20, decimal_places=2)
+    outflows = models.DecimalField(max_digits=20, decimal_places=2)
+    net_liquidity_gap = models.DecimalField(max_digits=20, decimal_places=2)
+    cumulative_gap = models.DecimalField(max_digits=20, decimal_places=2)
+
+    class Meta:
+        db_table = 'liquidity_gap_results_base'
 
 
 

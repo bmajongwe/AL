@@ -7,6 +7,8 @@ from .forms import FileUploadForm
 from datetime import datetime
 from django.http import HttpResponse
 from .Functions.cashflow import *
+from .Functions.Aggregated_Prod_Cashflow_Base import *
+from .Functions.populate_liquidity_gap_results_base import *
 from .Functions.aggregate_cashflows import *
 from .Functions.product_level_cashflows import *
 from .forms import TimeBucketsForm
@@ -97,11 +99,56 @@ def define_time_buckets(request):
         return redirect('ALM_APP/time_buckets_list')
 
     # If it's not a POST request, render the form
-    return render(request, 'ALM_APP/define_time_buckets.html')
+    #return render(request, 'ALM_APP/liquidity_gap_results.html')
 
 
 
 
+
+
+def liquidity_gap_results_view(request):
+    fic_mis_date = request.GET.get('fic_mis_date', '2024-08-31')
+    process_name = request.GET.get('process_name', 'contractual')
+
+    # Fetch inflows and outflows from LiquidityGapResultsBase
+    inflows = LiquidityGapResultsBase.objects.filter(account_type='Inflow', fic_mis_date=fic_mis_date, process_name=process_name)
+    outflows = LiquidityGapResultsBase.objects.filter(account_type='Outflow', fic_mis_date=fic_mis_date, process_name=process_name)
+
+    # Prepare data for rendering
+    data = []
+    
+    # Group inflows and outflows by product and assign buckets
+    for inflow in inflows:
+        buckets = []
+        for idx, bucket in enumerate(inflows):
+            buckets.append({
+                'bucket_start_date': bucket.bucket_start_date,
+                'bucket_end_date': bucket.bucket_end_date,
+                'inflows': bucket.inflows,
+                'net_liquidity_gap': bucket.net_liquidity_gap,
+                'cumulative_gap': bucket.cumulative_gap
+            })
+        
+        data.append({
+            'product_name': inflow.product_name,
+            'buckets': buckets
+        })
+
+    # Calculate lengths for the template
+    inflows_rowspan = len(inflows) + 3
+    outflows_rowspan = len(outflows) + 3
+
+    context = {
+        'fic_mis_date': fic_mis_date,
+        'process_name': process_name,
+        'data': data,
+        'inflows': inflows,
+        'outflows': outflows,
+        'inflows_rowspan': inflows_rowspan,  # Pass calculated value
+        'outflows_rowspan': outflows_rowspan  # Pass calculated value
+    }
+
+    return render(request, 'ALM_APP/liquidity_gap_results.html', context)
 
 
 
@@ -110,7 +157,9 @@ def define_time_buckets(request):
 def project_cash_flows_view(request):
     process_name='contractual'
     fic_mis_date = '2024-08-31'
-    status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
+    status= aggregate_by_prod_code(fic_mis_date, process_name)
+    status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
+    #status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
     #status= aggregate_cashflows_to_product_level(fic_mis_date)
     print(status)
     #project_cash_flows(fic_mis_date)       

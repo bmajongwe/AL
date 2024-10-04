@@ -1,65 +1,121 @@
-{% block content %}
-<h2>Liquidity Gap Detail - Product in Consolidated Currency</h2>
+<!-- {% load custom_filters %}
 
-<p>Results for the selected fic_mis_date: {{ fic_mis_date }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Liquidity Gap Report</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .vertical-date {
+            display: block;
+        }
+        .negative {
+            color: red;
+        }
+    </style>
+</head>
+<body>
 
-<table border="1" cellpadding="5" cellspacing="0">
+<h1>Liquidity Gap Report</h1>
+
+<table>
     <thead>
         <tr>
             <th>Account Type</th>
-            <th>Product Name</th>
-            <!-- Loop over the bucket headers -->
-            {% for record in data.0.buckets %}
-                <th>{{ record.bucket_start_date }} - {{ record.bucket_end_date }}</th>
+            <th>Product Name Level18</th>
+            <!-- Loop through unique date ranges -->
+            {% for start_date, end_date in unique_date_ranges %}
+                <th>
+                    <span class="vertical-date">{{ start_date }}</span><br>
+                    <span class="vertical-date">{{ end_date }}</span>
+                </th>
             {% endfor %}
         </tr>
     </thead>
     <tbody>
-        <!-- Total Inflows -->
+        <!-- Loop through each product -->
+        {% for product_name, product_data in products.items %}
         <tr>
-            <td rowspan="{{ inflows_rowspan }}">Total Inflows</td>
-            {% for inflow in inflows %}
-            <tr>
-                <td>{{ inflow.product_name }}</td>
-                {% for bucket in inflow.buckets %}
-                    <td>{{ bucket.inflows }}</td>
-                {% endfor %}
-            </tr>
+            <td>{{ product_data.account_type }}</td>
+            <td>{{ product_name }}</td>
+            <!-- Loop through the inflows or outflows per date range -->
+            {% for start_date, end_date in unique_date_ranges %}
+                {% with date_key=start_date|stringformat:"Y-m-d" ~ "_" ~ end_date|stringformat:"Y-m-d" %}
+                    <td>{{ product_data.data|get:date_key|default:"0.00" }}</td>
+                {% endwith %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+
+        <!-- Display Total Inflows row -->
+        <tr>
+            <td>Total Inflows</td>
+            <td></td>
+            <!-- Loop through inflows for each date range -->
+            {% for inflow in inflows_total_per_date %}
+                <td>{{ inflow|default:"0.00" }}</td>
             {% endfor %}
         </tr>
 
-        <!-- Total Outflows -->
+        <!-- Display Total Outflows row -->
         <tr>
-            <td rowspan="{{ outflows_rowspan }}">Total Outflows</td>
-            {% for outflow in outflows %}
-            <tr>
-                <td>{{ outflow.product_name }}</td>
-                {% for bucket in outflow.buckets %}
-                    <td>{{ bucket.outflows }}</td>
-                {% endfor %}
-            </tr>
+            <td>Total Outflows</td>
+            <td></td>
+            <!-- Loop through outflows for each date range -->
+            {% for outflow in outflows_total_per_date %}
+                <td>{{ outflow|default:"0.00" }}</td>
             {% endfor %}
         </tr>
 
-        <!-- Net Liquidity Gap -->
+        <!-- Display the Net Liquidity Gap row -->
         <tr>
-            <td colspan="2">Net Liquidity Gap</td>
-            {% for product in data %}
-                {% for bucket in product.buckets %}
-                    <td>{{ bucket.net_liquidity_gap }}</td>
-                {% endfor %}
+            <td>Net Liquidity Gap</td>
+            <td></td>
+            <!-- Loop through the pre-calculated net_liquidity_gap list -->
+            {% for gap in net_liquidity_gap %}
+                <td class="{% if gap < 0 %}negative{% endif %}">
+                    {{ gap|floatformat:2 }}
+                </td>
             {% endfor %}
         </tr>
 
-        <!-- Cumulative Gap -->
+        <!-- Display the Net Gap as % of Total Outflows row -->
         <tr>
-            <td colspan="2">Cumulative Gap</td>
-            {% for product in data %}
-                {% for bucket in product.buckets %}
-                    <td>{{ bucket.cumulative_gap }}</td>
-                {% endfor %}
+            <td>Net Gap as % of Total Outflows</td>
+            <td></td>
+            <!-- Loop through the pre-calculated net_gap_percent list -->
+            {% for gap_percent in net_gap_percent %}
+                <td class="{% if gap_percent < 0 %}negative{% endif %}">
+                    {{ gap_percent|floatformat:2 }}%
+                </td>
+            {% endfor %}
+        </tr>
+
+        <!-- Display the Cumulative Gap row -->
+        <tr>
+            <td>Cumulative Gap</td>
+            <td></td>
+            <!-- Loop through the pre-calculated cumulative_gap list -->
+            {% for gap in cumulative_gap %}
+                <td class="{% if gap < 0 %}negative{% endif %}">
+                    {{ gap|floatformat:2 }}
+                </td>
             {% endfor %}
         </tr>
     </tbody>
 </table>
-{% endblock %}
+
+</body>
+</html> -->

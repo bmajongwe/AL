@@ -1,11 +1,13 @@
 # forms.py
 from django import forms
-from .models import TimeBuckets
+from .models import *
 
 class TimeBucketsForm(forms.ModelForm):
     class Meta:
         model = TimeBuckets
         fields = ['serial_number', 'frequency', 'multiplier']
+
+
 
 
 class FileUploadForm(forms.Form):

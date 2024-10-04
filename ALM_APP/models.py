@@ -2,6 +2,38 @@
 from django.db import models
 from datetime import timedelta, date
 
+from django.forms import ValidationError
+
+
+from django.db import models
+from django.core.exceptions import ValidationError
+
+class BehavioralPatternConfig(models.Model):
+    v_prod_type = models.CharField(max_length=255, unique=True)  ## Ensure v_prod_type is unique, Product type linked to the product master
+    description = models.TextField()  # Optional description of the pattern
+    created_at = models.DateTimeField(null=True, blank=True)  # This will automatically store the creation time
+
+
+    def __str__(self):
+        return f"Behavioral Pattern for {self.v_prod_type}"
+
+# New model for pattern entries (tenor, multiplier, percentage)
+class BehavioralPatternEntry(models.Model):
+    pattern = models.ForeignKey(BehavioralPatternConfig, on_delete=models.CASCADE, related_name='entries')
+    tenor = models.IntegerField()  # Tenor for bucket (e.g., 1 month)
+    multiplier = models.CharField(max_length=10, choices=[('Days', 'Days'), ('Months', 'Months'), ('Years', 'Years')])
+    percentage = models.DecimalField(max_digits=6, decimal_places=3)
+
+    def __str__(self):
+        return f"Tenor: {self.tenor}, Multiplier: {self.multiplier}, Percentage: {self.percentage}"
+
+    def clean(self):
+        # Ensure percentage is valid (e.g., between 0 and 100)
+        if self.percentage < 0 or self.percentage > 100:
+            raise ValidationError("Percentage must be between 0 and 100.")
+
+    
+
 
 class TimeBucketMaster(models.Model):
     process_name = models.CharField(max_length=100)  # Name of the process (e.g., "Process X")
@@ -512,7 +544,7 @@ class AggregatedCashflowByBuckets(models.Model):
     bucket_50 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 50
 
     class Meta:
-        unique_together = ('fic_mis_date', 'process_name', 'v_account_number', 'financial_element')  # Ensure uniqueness
+        db_table = 'ALM_APP_Aggregated_Acc_Cashflow'
 
     def __str__(self):
         return f"{self.process_name} - Account: {self.v_account_number} ({self.financial_element})"

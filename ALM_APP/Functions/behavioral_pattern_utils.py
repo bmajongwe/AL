@@ -95,13 +95,16 @@ def update_behavioral_pattern_from_form_data(request, pattern):
         if not description:
             return {'error': 'Please provide a description.'}
 
+        # Ensure uniqueness excluding current pattern
         if BehavioralPatternConfig.objects.filter(v_prod_type=v_prod_type).exclude(id=pattern.id).exists():
             return {'error': f'A behavioral pattern for "{v_prod_type}" already exists.'}
 
+        # Retrieve form data
         tenors = request.POST.getlist('tenor[]')
         multipliers = request.POST.getlist('multiplier[]')
         percentages = request.POST.getlist('percentage[]')
 
+        # Validate the entries
         if not tenors or not percentages or len(tenors) != len(percentages):
             return {'error': 'Please enter valid behavioral pattern entries.'}
 
@@ -115,13 +118,17 @@ def update_behavioral_pattern_from_form_data(request, pattern):
             traceback.print_exc()
             return {'error': 'Invalid percentage value entered.'}
 
+        # Use transaction.atomic() to ensure consistency
         with transaction.atomic():
+            # Update pattern details
             pattern.v_prod_type = v_prod_type
             pattern.description = description
             pattern.save()
 
-            pattern.behavioralpatternentry_set.all().delete()
+            # Delete existing entries using the correct related_name 'entries'
+            pattern.entries.all().delete()
 
+            # Create and save new entries
             for i in range(len(tenors)):
                 BehavioralPatternEntry.objects.create(
                     pattern=pattern,
@@ -135,6 +142,8 @@ def update_behavioral_pattern_from_form_data(request, pattern):
         return {'error': 'An unexpected error occurred. Please try again.'}
 
     return {'success': True}
+
+
 
 # Utility function for deleting behavioral patterns
 def delete_behavioral_pattern_by_id(id):

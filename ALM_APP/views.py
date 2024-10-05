@@ -61,44 +61,45 @@ def behavioral_patterns_list(request):
     return render(request, 'behavioral/behavioral_patterns_list.html', {'patterns': patterns})
 
 # View for Editing Behavioral Pattern
-def edit_behavioral_pattern(request, pattern_id):
-    # Fetch the pattern config using the ID
-    pattern_config = get_object_or_404(BehavioralPatternConfig, id=pattern_id)
-    entries = pattern_config.entries.all()  # Assuming you use 'entries' as related_name in the BehavioralPatternEntry model
+# In your views.py
 
-    if request.method == 'POST':
-        # Update the pattern
-        result = define_behavioral_pattern_from_form_data(request, pattern_config=pattern_config)
+def edit_behavioral_pattern(request, id):
+    try:
+        # Get the pattern to edit
+        pattern = BehavioralPatternConfig.objects.get(id=id)
 
-        if 'error' in result:
-            return render(request, 'behavioral/create_behavioral_pattern.html', {
-                'error': result['error'],
-                'v_prod_type': pattern_config.v_prod_type,
-                'description': pattern_config.description,
-                'tenors': request.POST.getlist('tenor[]'),
-                'multipliers': request.POST.getlist('multiplier[]'),
-                'percentages': request.POST.getlist('percentage[]'),
-                'is_edit': True,
-                'pattern_id': pattern_id
-            })
+        if request.method == 'POST':
+            # Call the utility function to update the pattern
+            result = update_behavioral_pattern_from_form_data(request, pattern)
 
-        # Redirect to the list page after successful update
+            if 'error' in result:
+                return render(request, 'behavioral/edit_behavioral_pattern.html', {
+                    'error': result['error'],
+                    'v_prod_type': pattern.v_prod_type,
+                    'description': pattern.description,
+                    'tenors': [entry.tenor for entry in pattern.entries.all()],
+                    'multipliers': [entry.multiplier for entry in pattern.entries.all()],
+                    'percentages': [entry.percentage for entry in pattern.entries.all()],
+                })
+
+            # If successful, display the success message and redirect
+            messages.success(request, "Behavioral pattern updated successfully!")
+            return redirect('behavioral_patterns_list')  # Redirect back to the patterns list
+
+        # If GET request, prepopulate the form with the current data
+        return render(request, 'behavioral/edit_behavioral_pattern.html', {
+            'v_prod_type': pattern.v_prod_type,
+            'description': pattern.description,
+            'tenors': [entry.tenor for entry in pattern.entries.all()],
+            'multipliers': [entry.multiplier for entry in pattern.entries.all()],
+            'percentages': [entry.percentage for entry in pattern.entries.all()],
+        })
+
+    except BehavioralPatternConfig.DoesNotExist:
+        messages.error(request, "Behavioral pattern not found.")
         return redirect('behavioral_patterns_list')
-
-    # Pre-populate the form with existing pattern data for GET requests
-    tenors = [entry.tenor for entry in entries]
-    multipliers = [entry.multiplier for entry in entries]
-    percentages = [entry.percentage for entry in entries]
-
-    return render(request, 'behavioral/create_behavioral_pattern.html', {
-        'v_prod_type': pattern_config.v_prod_type,
-        'description': pattern_config.description,
-        'tenors': tenors,
-        'multipliers': multipliers,
-        'percentages': percentages,
-        'is_edit': True,
-        'pattern_id': pattern_id
-    })
+    
+    
 
 
 # View for Deleting Behavioral Pattern

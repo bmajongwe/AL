@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 class BehavioralPatternConfig(models.Model):
     v_prod_type = models.CharField(max_length=255, unique=True)  ## Ensure v_prod_type is unique, Product type linked to the product master
     description = models.TextField()  # Optional description of the pattern
-    created_at = models.DateTimeField(null=True, blank=True)  # This will automatically store the creation time
+    created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation time
 
 
     def __str__(self):

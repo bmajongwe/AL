@@ -31,7 +31,10 @@
             <tr>
                 <th>Product Type</th>
                 <th>Description</th>
+                <th>Created By</th>
                 <th>Created On</th>
+                <th>Last Changed By</th>
+                <th>Last Changed Date</th>
                 <th class="text-center">Actions</th>
             </tr>
         </thead>
@@ -40,7 +43,10 @@
             <tr>
                 <td>{{ pattern.v_prod_type }}</td>
                 <td>{{ pattern.description }}</td>
+                <td>{{ pattern.created_by }}</td>
                 <td>{{ pattern.created_at|date:"M d, Y H:i" }}</td>
+                <td>{{ pattern.last_changed_by }}</td>
+                <td>{{ pattern.last_changed_at|date:"M d, Y H:i" }}</td>
                 <td class="text-center">
                     <!-- Edit Button -->
                     <a href="{% url 'edit_behavioral_pattern' pattern.id %}" class="btn btn-sm btn-warning">
@@ -57,7 +63,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" class="text-center">No behavioral patterns found.</td>
+                <td colspan="7" class="text-center">No behavioral patterns found.</td>
             </tr>
             {% endfor %}
         </tbody>

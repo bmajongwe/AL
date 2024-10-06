@@ -12,6 +12,10 @@ class BehavioralPatternConfig(models.Model):
     v_prod_type = models.CharField(max_length=255, unique=True)  ## Ensure v_prod_type is unique, Product type linked to the product master
     description = models.TextField()  # Optional description of the pattern
     created_at = models.DateTimeField(auto_now_add=True)  # This will automatically store the creation time
+    created_by = models.CharField(max_length=100, default='System')  # New field for the creator
+    last_changed_at = models.DateTimeField(auto_now=True)  # Automatically updated on every save
+    last_changed_by = models.CharField(max_length=100, default='System')  # New field for the person who made the last change
+
 
 
     def __str__(self):
@@ -19,6 +23,7 @@ class BehavioralPatternConfig(models.Model):
 
 # New model for pattern entries (tenor, multiplier, percentage)
 class BehavioralPatternEntry(models.Model):
+    order = models.IntegerField()  # New field to store the order of the entry
     pattern = models.ForeignKey(BehavioralPatternConfig, on_delete=models.CASCADE, related_name='entries')
     tenor = models.IntegerField()  # Tenor for bucket (e.g., 1 month)
     multiplier = models.CharField(max_length=10, choices=[('Days', 'Days'), ('Months', 'Months'), ('Years', 'Years')])

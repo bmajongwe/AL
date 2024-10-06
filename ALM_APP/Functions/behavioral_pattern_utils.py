@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 import traceback
 from django.db import transaction  # Import transaction for atomic operations
+from django.utils import timezone  # Import timezone for datetime fields
 from ..models import BehavioralPatternConfig, BehavioralPatternEntry
 
 def define_behavioral_pattern_from_form_data(request):
@@ -51,9 +52,17 @@ def define_behavioral_pattern_from_form_data(request):
 
         # Use transaction.atomic() to ensure both config and entries are saved together
         with transaction.atomic():
-            # Create the BehavioralPatternConfig (initial save)
-            pattern_config = BehavioralPatternConfig(v_prod_type=v_prod_type, description=description)
+            # Create the BehavioralPatternConfig (initial save with default values for created_by and last_changed_by)
+            pattern_config = BehavioralPatternConfig(
+                v_prod_type=v_prod_type, 
+                description=description,
+                created_by="System",  # Default value as we don't have user authentication
+                last_changed_by="System"  # Default value for last changed
+            )
             pattern_config.save()
+
+            # Get current number of entries for order
+            current_entries = 0
 
             # Create and save each BehavioralPatternEntry object
             for i in range(len(tenors)):
@@ -61,12 +70,14 @@ def define_behavioral_pattern_from_form_data(request):
                 multiplier = multipliers[i]
                 percentage = percentage_values[i]
 
-                # Save the entry linked to the pattern config
+                # Save the entry linked to the pattern config with an auto-incrementing order
+                current_entries += 1
                 BehavioralPatternEntry.objects.create(
                     pattern=pattern_config,
                     tenor=tenor,
                     multiplier=multiplier,
-                    percentage=percentage
+                    percentage=percentage,
+                    order=current_entries  # Auto-increment the order
                 )
 
     except Exception as e:
@@ -77,9 +88,6 @@ def define_behavioral_pattern_from_form_data(request):
 
     # If everything goes well, return success
     return {'success': True}
-
-
-
 
 
 
@@ -123,18 +131,25 @@ def update_behavioral_pattern_from_form_data(request, pattern):
             # Update pattern details
             pattern.v_prod_type = v_prod_type
             pattern.description = description
+            pattern.last_changed_date = timezone.now()  # Update last changed date
+            pattern.last_changed_by = "System"  # Default value as we don't have user authentication
             pattern.save()
 
             # Delete existing entries using the correct related_name 'entries'
             pattern.entries.all().delete()
 
-            # Create and save new entries
+            # Get current number of entries for order
+            current_entries = 0
+
+            # Create and save new entries with an auto-incrementing order
             for i in range(len(tenors)):
+                current_entries += 1
                 BehavioralPatternEntry.objects.create(
                     pattern=pattern,
                     tenor=int(tenors[i]),
                     multiplier=multipliers[i],
-                    percentage=percentage_values[i]
+                    percentage=percentage_values[i],
+                    order=current_entries  # Auto-increment the order
                 )
 
     except Exception as e:
@@ -142,7 +157,6 @@ def update_behavioral_pattern_from_form_data(request, pattern):
         return {'error': 'An unexpected error occurred. Please try again.'}
 
     return {'success': True}
-
 
 
 # Utility function for deleting behavioral patterns

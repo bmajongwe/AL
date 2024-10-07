@@ -61,29 +61,42 @@ class Process(models.Model):
         return self.name
 
 
-
-
 class TimeBucketDefinition(models.Model):
     name = models.CharField(max_length=100)  # Name of the time bucket set
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, default="System")
+    last_changed_at = models.DateTimeField(auto_now=True)
+    last_changed_by = models.CharField(max_length=100, default="System")
 
     def __str__(self):
         return self.name
 
 
 class TimeBuckets(models.Model):
+    # Auto-incremented serial number within the scope of each definition
     serial_number = models.IntegerField()
-    frequency = models.IntegerField()  # Frequency as an integer (e.g., 7 days, 3 months)
-    multiplier = models.CharField(max_length=20)  # Days, Months, Years
+    # Foreign key to associate with TimeBucketDefinition
+    definition = models.ForeignKey(TimeBucketDefinition, on_delete=models.CASCADE, related_name='buckets')  
+    # Date range
     start_date = models.DateField()  # Start date for this time bucket
     end_date = models.DateField()  # End date for this time bucket
-    definition = models.ForeignKey(TimeBucketDefinition, on_delete=models.CASCADE)  # Foreign key to the definition set
+    # Frequency details
+    frequency = models.IntegerField()  # Frequency as an integer (e.g., 7 days, 3 months)
+    multiplier = models.CharField(max_length=20)  # Days, Months, Years
 
     class Meta:
         db_table = 'time_buckets'
 
     def __str__(self):
         return f"Bucket {self.serial_number}: {self.start_date} - {self.end_date} ({self.multiplier})"
+    
+    def save(self, *args, **kwargs):
+        # Auto-increment serial_number based on the defi
+        if not self.pk:
+            last_bucket = TimeBuckets.objects.filter(definition=self.definition).order_by('-serial_number').first()
+            self.serial_number = (last_bucket.serial_number + 1) if last_bucket else 1
+        super(TimeBuckets, self).save(*args, **kwargs)
+
 
 
 class Ldn_Financial_Instrument(models.Model):

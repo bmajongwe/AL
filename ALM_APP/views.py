@@ -1,11 +1,15 @@
 from collections import defaultdict
 import os
+from django.views.generic.detail import DetailView
+from django.urls import reverse_lazy
+from django.views import View
 import pandas as pd
 from decimal import Decimal
 import csv
 import traceback
 from django.contrib import messages  # Import messages framework
 from django.shortcuts import get_object_or_404, render, redirect
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.conf import settings
 from .forms import *
 from datetime import datetime
@@ -16,6 +20,8 @@ from .Functions.aggregate_cashflows import *
 from .Functions.Aggregated_Acc_level_cashflows import *
 from .Functions.behavioral_pattern_utils import define_behavioral_pattern_from_form_data, delete_behavioral_pattern_by_id, update_behavioral_pattern_from_form_data
 from .Functions.time_bucket_utils import define_time_bucket_from_form_data, update_time_bucket_from_form_data, delete_time_bucket_by_id
+from .Functions.product_filter_utils import *
+from .Functions.process_utils import *
 from .forms import TimeBucketsForm
 from .models import TimeBuckets
 from .models import FSI_Expected_Cashflow
@@ -40,7 +46,7 @@ def create_behavioral_pattern(request):
             messages.error(request, result['error'])
 
             # Return the form with existing data to repopulate the form fields
-            return render(request, 'behavioral/create_behavioral_pattern.html', {
+            return render(request, 'ALM_APP/behavioral/create_behavioral_pattern.html', {
                 'v_prod_type': request.POST.get('v_prod_type'),
                 'description': request.POST.get('description'),
                 'tenors': request.POST.getlist('tenor[]'),
@@ -54,12 +60,12 @@ def create_behavioral_pattern(request):
             return redirect('behavioral_patterns_list')  # Redirect to a success page or list
 
     # If it's not a POST request, render the form
-    return render(request, 'behavioral/create_behavioral_pattern.html') # Redirect to the behavioral patterns list page
+    return render(request, 'ALM_APP/behavioral/create_behavioral_pattern.html') # Redirect to the behavioral patterns list page
 
 # View for Behavioral Pattern List
 def behavioral_patterns_list(request):
     patterns = BehavioralPatternConfig.objects.all().order_by('-created_at')  # Fetching all patterns sorted by newest first
-    return render(request, 'behavioral/behavioral_patterns_list.html', {'patterns': patterns})
+    return render(request, 'ALM_APP/behavioral/behavioral_patterns_list.html', {'patterns': patterns})
 
 # View for Editing Behavioral Pattern
 # In your views.py
@@ -74,7 +80,7 @@ def edit_behavioral_pattern(request, id):
             result = update_behavioral_pattern_from_form_data(request, pattern)
 
             if 'error' in result:
-                return render(request, 'behavioral/edit_behavioral_pattern.html', {
+                return render(request, 'ALM_APP/behavioral/edit_behavioral_pattern.html', {
                     'error': result['error'],
                     'v_prod_type': pattern.v_prod_type,
                     'description': pattern.description,
@@ -88,7 +94,7 @@ def edit_behavioral_pattern(request, id):
             return redirect('behavioral_patterns_list')  # Redirect back to the patterns list
 
         # If GET request, prepopulate the form with the current data
-        return render(request, 'behavioral/edit_behavioral_pattern.html', {
+        return render(request, 'ALM_APP/behavioral/edit_behavioral_pattern.html', {
             'v_prod_type': pattern.v_prod_type,
             'description': pattern.description,
             'tenors': [entry.tenor for entry in pattern.entries.all()],
@@ -120,7 +126,7 @@ def view_behavioral_pattern(request, id):
     behavioral_pattern = get_object_or_404(BehavioralPatternConfig, id=id)
     pattern_entries = BehavioralPatternEntry.objects.filter(pattern=behavioral_pattern).order_by('order')
     
-    return render(request, 'behavioral/view_behavioral_pattern.html', {
+    return render(request, 'ALM_APP/behavioral/view_behavioral_pattern.html', {
         'behavioral_pattern': behavioral_pattern,
         'pattern_entries': pattern_entries
     })
@@ -147,7 +153,7 @@ def create_time_bucket(request):
             messages.error(request, result['error'])
 
             # Return the form with existing data to repopulate the form fields
-            return render(request, 'time_buckets/create_time_bucket.html', {
+            return render(request, 'ALM_APP/time_buckets/create_time_bucket.html', {
                 'name': request.POST.get('name'),
                 'frequencies': request.POST.getlist('frequency[]'),
                 'multipliers': request.POST.getlist('multiplier[]'),
@@ -161,13 +167,13 @@ def create_time_bucket(request):
             return redirect('time_bucket_list')  # Redirect to a success page or list
 
     # If it's not a POST request, render the form
-    return render(request, 'time_buckets/create_time_bucket.html')  # Redirect to the time buckets list page
+    return render(request, 'ALM_APP/time_buckets/create_time_bucket.html')  # Redirect to the time buckets list page
 
 
 # View for Listing Time Buckets
 def time_buckets_list(request):
     time_buckets = TimeBucketDefinition.objects.all().order_by('-created_at')  # Fetching all time buckets sorted by newest first
-    return render(request, 'time_buckets/time_bucket_list.html', {'time_buckets': time_buckets})
+    return render(request, 'ALM_APP/time_buckets/time_bucket_list.html', {'time_buckets': time_buckets})
 
 
 # View for Editing a Time Bucket
@@ -181,7 +187,7 @@ def edit_time_bucket(request, id):
             result = update_time_bucket_from_form_data(request, time_bucket)
 
             if 'error' in result:
-                return render(request, 'time_buckets/edit_time_bucket.html', {
+                return render(request, 'ALM_APP/time_buckets/edit_time_bucket.html', {
                     'error': result['error'],
                     'name': time_bucket.name,
                     'frequencies': [entry.frequency for entry in time_bucket.buckets.all()],
@@ -195,7 +201,7 @@ def edit_time_bucket(request, id):
             return redirect('time_bucket_list')  # Redirect back to the time buckets list
 
         # If GET request, prepopulate the form with the current data
-        return render(request, 'time_buckets/edit_time_bucket.html', {
+        return render(request, 'ALM_APP/time_buckets/edit_time_bucket.html', {
             'name': time_bucket.name,
             'frequencies': [entry.frequency for entry in time_bucket.buckets.all()],
             'multipliers': [entry.multiplier for entry in time_bucket.buckets.all()],
@@ -226,10 +232,19 @@ def view_time_bucket(request, id):
     time_bucket = get_object_or_404(TimeBucketDefinition, id=id)
 
     # Pass the time bucket and its entries to the template
-    return render(request, 'time_buckets/view_time_bucket.html', {
+    return render(request, 'ALM_APP/time_buckets/view_time_bucket.html', {
         'time_bucket': time_bucket,
         'buckets': time_bucket.buckets.all().order_by('serial_number')
     })
+
+
+
+
+
+
+
+
+
 
     
 
@@ -241,16 +256,188 @@ def view_time_bucket(request, id):
 
 
 
+# ProductFilter Views
+class ProductFilterListView(ListView):
+    model = ProductFilter
+    template_name = 'ALM_APP/filters/filter_list.html'
+    context_object_name = 'filters'
+
+class ProductFilterCreateView(CreateView):
+    model = ProductFilter
+    form_class = ProductFilterForm
+    template_name = 'ALM_APP/filters/filter_form.html'
+    success_url = reverse_lazy('product_filter_list')
+
+    def form_valid(self, form):
+        create_or_update_filter(data=form.cleaned_data)
+        messages.success(self.request, 'Product filter created successfully.')
+        return redirect(self.success_url)
+
+class ProductFilterUpdateView(UpdateView):
+    model = ProductFilter
+    form_class = ProductFilterForm
+    template_name = 'ALM_APP/filters/filter_update.html'
+    success_url = reverse_lazy('product_filter_list')
+
+    def form_valid(self, form):
+        create_or_update_filter(filter_id=self.object.id, data=form.cleaned_data)
+        messages.success(self.request, 'Product filter updated successfully.')
+        return redirect(self.success_url)
+
+class ProductFilterDeleteView(View):
+    success_url = reverse_lazy('product_filter_list')
+
+    def post(self, request, *args, **kwargs):
+        # Retrieve the filter to delete
+        product_filter = get_object_or_404(ProductFilter, id=kwargs['pk'])
+        delete_filter(filter_id=product_filter.id)
+        messages.success(request, 'Product filter deleted successfully.')
+        return redirect(self.success_url)
+    
+class ProductFilterDetailView(DetailView):
+    model = ProductFilter
+    template_name = 'ALM_APP/filters/filter_detail.html'
+    context_object_name = 'filter'
+
+    def get_object(self):
+        # Fetch the filter based on ID or raise a 404 error
+        filter_id = self.kwargs.get('pk')
+        return get_object_or_404(ProductFilter, pk=filter_id)  
 
 
+# Process Views
+class ProcessListView(ListView):
+    model = Process
+    template_name = 'ALM_APP/filters/process_list.html'
+    context_object_name = 'processes'
 
+def process_create_view(request):
+    # Check if 'step' is in the session; otherwise, initialize it to 1
+    step = request.session.get('step', 1)
+    print(f"\n=== Current Step: {step} ===")
 
+    # Step 1: Define Process Name and Description
+    if step == 1:
+        if request.method == 'POST':
+            # Save process name and description from POST data
+            process_name = request.POST.get('name')
+            process_description = request.POST.get('description')
+            print(f"Step 1 - Name: {process_name}, Description: {process_description}")
 
+            # Check if process name is provided
+            if not process_name:
+                messages.error(request, "Process name is required.")
+                return render(request, 'ALM_APP/filters/process_create.html', {'step': step})
 
+            # Save the data to the session and proceed to the next step
+            request.session['process_name'] = process_name
+            request.session['process_description'] = process_description
+            request.session['step'] = 2  # Explicitly update to Step 2
+            return redirect('process_create')
 
+        # Render step 1 form if not a POST request
+        return render(request, 'ALM_APP/filters/process_create.html', {'step': step})
 
+    # Step 2: Select Filters for the Process
+    elif step == 2:
+        filters = ProductFilter.objects.all()
+        if request.method == 'POST':
+            if 'previous' in request.POST:
+                request.session['step'] = 1  # Go back to step 1
+                return redirect('process_create')
+            else:
+                # Save selected filters to the session
+                selected_filters = request.POST.getlist('filters')
+                request.session['selected_filters'] = selected_filters
+                print(f"Step 2 - Selected Filters: {selected_filters}")
 
+                # Move to the next step
+                request.session['step'] = 3
+                return redirect('process_create')
 
+        return render(request, 'ALM_APP/filters/process_create.html', {'step': step, 'filters': filters})
+
+    # Step 3: Confirm and Execute
+    elif step == 3:
+        process_name = request.session.get('process_name')
+        process_description = request.session.get('process_description')
+        selected_filters = request.session.get('selected_filters', [])
+        filters = ProductFilter.objects.filter(id__in=selected_filters)
+        
+        print(f"Step 3 - Name: {process_name}, Description: {process_description}, Filters: {selected_filters}")
+
+        if request.method == 'POST':
+            if 'previous' in request.POST:
+                request.session['step'] = 2  # Go back to step 2
+                return redirect('process_create')
+            else:
+                # Finalize and save the process
+                process = finalize_process_creation(request)
+                messages.success(request, f"Process '{process.name}' created successfully.")
+                print(f"Process '{process.name}' created successfully.")
+                
+                # Clear session data related to this process creation
+                request.session.pop('process_name', None)
+                request.session.pop('process_description', None)
+                request.session.pop('selected_filters', None)
+                request.session.pop('step', None)
+                
+                return redirect('process_list')
+
+        return render(request, 'ALM_APP/filters/process_create.html', {
+            'step': step,
+            'process_name': process_name,
+            'process_description': process_description,
+            'selected_filters': filters
+        })
+
+    # If no valid step, default to Step 1 and initialize session data
+    request.session['step'] = 1
+    return redirect('process_create')
+
+def execute_process_view(request):
+    if request.method == 'POST':
+        process_id = request.POST.get('process_id')
+        fic_mis_date = request.POST.get('fic_mis_date')
+
+        try:
+            datetime.strptime(fic_mis_date, "%Y-%m-%d")
+        except ValueError:
+            messages.error(request, "Invalid date format. Please use YYYY-MM-DD.")
+            return redirect('process_list')
+
+        process = get_object_or_404(Process, id=process_id)
+
+        try:
+            calculate_time_buckets_and_spread(process.name, fic_mis_date)
+            messages.success(request, f"Process '{process.name}' executed successfully.")
+        except Exception as e:
+            messages.error(request, f"Error executing process: {e}")
+
+        return redirect('process_list')
+
+    return render(request, 'ALM_APP/filters/process_execute.html')
+
+class ProcessUpdateView(UpdateView):
+    model = Process
+    form_class = ProcessForm
+    template_name = 'ALM_APP/filters/process_form.html'
+    success_url = reverse_lazy('process_list')
+
+    def form_valid(self, form):
+        create_or_update_process(process_id=self.object.id, data=form.cleaned_data)
+        messages.success(self.request, 'Process updated successfully.')
+        return redirect(self.success_url)
+
+class ProcessDeleteView(DeleteView):
+    model = Process
+    template_name = 'ALM_APP/filters/process_confirm_delete.html'
+    success_url = reverse_lazy('process_list')
+
+    def delete(self, request, *args, **kwargs):
+        delete_process(process_id=self.get_object().id)
+        messages.success(request, 'Process deleted successfully.')
+        return redirect(self.success_url)
 
 
 

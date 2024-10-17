@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Time Bucket</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
+{% extends "ALM_APP/base.html" %}
 
+{% block content %}
 <div class="container mt-4">
     <h2 class="mb-4 text-center">Create Time Bucket Definition</h2>
     
@@ -83,12 +76,7 @@
     </form>
 </div>
 
-<!-- Bootstrap JS and dependencies -->
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-<!-- Custom JS to handle adding/removing entries and calculating dates -->
+<!-- JavaScript to handle adding/removing entries and calculating dates -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var today = new Date().toISOString().split('T')[0];
@@ -152,6 +140,4 @@ function calculateEndDate(entry) {
     entry.querySelector('.end-date').value = endDate.toISOString().split('T')[0];
 }
 </script>
-
-</body>
-</html>
+{% endblock %}

@@ -1,7 +1,7 @@
 # ALM_APP/models.py
 from django.db import models
 from datetime import timedelta, date
-
+from django.utils import timezone
 from django.forms import ValidationError
 
 
@@ -53,12 +53,7 @@ class TimeBucketMaster(models.Model):
     def __str__(self):
         return f"{self.process_name} - Bucket {self.bucket_number} ({self.start_date} to {self.end_date})"
 
-class Process(models.Model):
-    name = models.CharField(max_length=100)  # Name of the process (e.g., 'contractual', 'forecast', etc.)
-    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return self.name
 
 
 class TimeBucketDefinition(models.Model):
@@ -154,6 +149,8 @@ class product_level_cashflows(models.Model):
     n_total_interest_payment = models.DecimalField(max_digits=20, decimal_places=2)
     n_total_balance = models.DecimalField(max_digits=20, decimal_places=2)
     v_ccy_code = models.CharField(max_length=10)
+    record_count = models.IntegerField(default=0)
+
 
     class Meta:
         db_table = 'product_level_cashflows'
@@ -228,7 +225,50 @@ class Fsi_Interest_Method(models.Model):
 
     def _str_(self):
         return self.v_interest_method
+    
 
+
+
+
+
+
+class ProductFilter(models.Model):
+    field_name = models.CharField(max_length=50)  # Name of the field to filter by
+    condition = models.CharField(max_length=50)  # Type of condition (equals, contains, etc.)
+    value = models.CharField(max_length=255)  # Value to filter with
+    created_by = models.CharField(max_length=50, default='System')
+    created_at = models.DateTimeField(default=timezone.now)
+    modified_by = models.CharField(max_length=50, default='System')
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.field_name} {self.condition} {self.value}"
+
+
+class Process(models.Model):
+    name = models.CharField(max_length=100)  # Name of the process (e.g., 'contractual', 'forecast', etc.
+    description = models.TextField(null=True, blank=True)  # Optional description for the process
+    filters = models.ManyToManyField(ProductFilter, related_name='processes')
+    execution_date = models.DateTimeField(null=True, blank=True)  # Optional field to track last execution date
+    status = models.CharField(max_length=20, default='Pending')  # Track status (e.g., 'Pending', 'Completed')
+    created_by = models.CharField(max_length=50, default='System')
+    created_at = models.DateTimeField(default=timezone.now)
+    modified_by = models.CharField(max_length=50, default='System')
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+    
+# class Process(models.Model):
+#     name = models.CharField(max_length=100)
+#     filters = models.ManyToManyField(ProductFilter, related_name='processes')
+#     created_by = models.CharField(max_length=50, default='System')
+#     created_at = models.DateTimeField(default=timezone.now)
+#     modified_by = models.CharField(max_length=50, default='System')
+#     modified_at = models.DateTimeField(auto_now=True)
+
+#     def __str__(self):
+#         return self.name
 
 class Ldn_Product_Master(models.Model):  # Class name with underscores
     v_prod_code = models.CharField(max_length=20, null=False)  # VARCHAR2(20)

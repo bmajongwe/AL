@@ -19,3 +19,31 @@ class FileUploadForm(forms.Form):
         ('NewFinancialTable', 'NewFinancialTable'),  # Add the new table here
 
     ])
+
+
+
+
+
+class ProductFilterForm(forms.ModelForm):
+    field_name = forms.ChoiceField(choices=[])
+
+    class Meta:
+        model = ProductFilter
+        fields = ['field_name', 'condition', 'value']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Get field names dynamically from the Product Master model
+        product_master_fields = [(field.name, field.verbose_name) for field in Ldn_Product_Master._meta.fields]
+        self.fields['field_name'].choices = product_master_fields
+
+class ProcessForm(forms.ModelForm):
+    filters = forms.ModelMultipleChoiceField(
+        queryset=ProductFilter.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
+
+    class Meta:
+        model = Process
+        fields = ['name', 'filters']

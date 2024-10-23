@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from decimal import Decimal
 from dateutil.relativedelta import relativedelta  # To handle months and years
 from django.db.models import Sum, Max
 from ..models import *
@@ -57,6 +58,8 @@ def filter_products(process_name, fic_mis_date):
     print(f"Filtered product codes with highest fic_mis_date where conditions are met: {list(final_product_codes)}")
     return final_product_codes
 
+
+
 def calculate_time_buckets_and_spread(process_name, fic_mis_date):
     """
     Aggregate cashflow data from product_level_cashflows table and spread amounts across time buckets.
@@ -110,6 +113,7 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
         account_number = cashflow.v_account_number
         product_code = cashflow.v_prod_code
         currency_code = cashflow.v_ccy_code
+        v_loan_type=cashflow.v_loan_type
 
         financial_elements = ['n_total_cash_flow_amount', 'n_total_principal_payment', 'n_total_interest_payment']
 
@@ -154,6 +158,7 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
                 v_account_number=account_number,
                 v_prod_code=product_code,
                 v_ccy_code=currency_code,
+                v_loan_type=v_loan_type,
                 financial_element=element,
                 defaults={
                     **bucket_data,
@@ -162,3 +167,122 @@ def calculate_time_buckets_and_spread(process_name, fic_mis_date):
             )
 
     print(f"Successfully aggregated cashflows for process '{process_name}' and fic_mis_date {fic_mis_date}.")
+
+
+
+
+
+
+
+
+def calculate_behavioral_pattern_distribution(process_name, fic_mis_date):
+    """
+    Distribute amounts across time buckets based on behavioral patterns.
+    Deletes previous entries if the process is rerun for the same fic_mis_date.
+    """
+    if isinstance(fic_mis_date, str):
+        fic_mis_date = datetime.strptime(fic_mis_date, "%Y-%m-%d").date()
+
+    # Step 1: Delete previous entries for the process_name and fic_mis_date
+    AggregatedCashflowByBuckets.objects.filter(
+        process_name=process_name, 
+        fic_mis_date=fic_mis_date
+    ).delete()
+
+    print(f"Deleted existing records for process '{process_name}' and fic_mis_date {fic_mis_date}")
+
+    # Fetch behavioral patterns
+    behavioral_patterns = BehavioralPatternConfig.objects.all()
+
+    if not behavioral_patterns.exists():
+        print("No behavioral patterns found.")
+        return
+
+    # Fetch the time buckets associated with the process
+    time_buckets = TimeBuckets.objects.all().order_by('serial_number')
+
+    if not time_buckets.exists():
+        print("No time buckets found.")
+        return
+
+    total_time_buckets = time_buckets.count()
+
+    for pattern in behavioral_patterns:
+        print(f"Applying behavioral pattern for product type '{pattern.v_prod_type}'.")
+
+        # Fetch the entries associated with this pattern
+        entries = BehavioralPatternEntry.objects.filter(pattern_id=pattern.id).order_by('order')
+
+        total_entries = entries.count()
+
+        # Check if the number of behavioral entries matches the number of time buckets
+        if total_entries != total_time_buckets:
+            print(f"Mismatch between behavioral entries ({total_entries}) and time buckets ({total_time_buckets}). Skipping pattern '{pattern.v_prod_type}'.")
+            continue  # Skip this pattern since it doesn't match the time buckets
+
+        # Fetch product level cashflows that match the product type
+        cashflows = product_level_cashflows.objects.filter(
+            fic_mis_date=fic_mis_date,
+            v_prod_code__in=Ldn_Product_Master.objects.filter(v_prod_type=pattern.v_prod_type).values_list('v_prod_code', flat=True)
+        )
+
+        if not cashflows.exists():
+            print(f"No cashflows found for fic_mis_date: {fic_mis_date} and product type: {pattern.v_prod_type}")
+            continue
+
+        # Process each cashflow item and distribute amounts based on percentage
+        for cashflow in cashflows:
+            account_number = cashflow.v_account_number
+            product_code = cashflow.v_prod_code
+            currency_code = cashflow.v_ccy_code
+            v_loan_type=cashflow.v_loan_type
+
+            financial_elements = ['n_total_cash_flow_amount', 'n_total_principal_payment', 'n_total_interest_payment']
+
+            for element in financial_elements:
+                total_value = getattr(cashflow, element)
+
+                # Edge case: skip if total_value is None or zero
+                if total_value is None or total_value == 0:
+                    continue
+
+                # Distribute across the entries based on percentage
+                for entry, time_bucket in zip(entries, time_buckets):
+                    percentage = entry.percentage / Decimal(100.0)  # Convert percentage to a ratio
+                    distributed_value = total_value * percentage
+
+                    # Store the distribution in TimeBucketMaster (optional for record keeping)
+                    time_bucket_master, _ = TimeBucketMaster.objects.update_or_create(
+                        process_name=process_name,
+                        bucket_number=time_bucket.serial_number,  # Use 'serial_number' from time buckets
+                        defaults={
+                            'start_date': time_bucket.start_date,
+                            'end_date': time_bucket.end_date,
+                        }
+                    )
+
+                    # Fetch existing value in the bucket and accumulate
+                    aggregated_entry, created = AggregatedCashflowByBuckets.objects.get_or_create(
+                        fic_mis_date=fic_mis_date,
+                        process_name=process_name,
+                        v_account_number=account_number,
+                        v_prod_code=product_code,
+                        v_ccy_code=currency_code,
+                        v_loan_type=v_loan_type,
+                        financial_element=element,
+                    )
+
+                    # Fetch the current value, and default to Decimal(0) if it is None
+                    current_value = getattr(aggregated_entry, f'bucket_{time_bucket.serial_number}', None)
+                    if current_value is None:
+                        current_value = Decimal(0)
+
+                    # Accumulate the value in the bucket
+                    new_value = current_value + distributed_value
+
+                    # Update the entry with the new accumulated value
+                    setattr(aggregated_entry, f'bucket_{time_bucket.serial_number}', new_value)
+                    aggregated_entry.time_bucket_master = time_bucket_master  # Correctly assign the TimeBucketMaster instance
+                    aggregated_entry.save()
+
+    print(f"Successfully distributed amounts using behavioral patterns for process '{process_name}' and fic_mis_date {fic_mis_date}.")

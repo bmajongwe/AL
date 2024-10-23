@@ -20,7 +20,7 @@ def aggregate_by_prod_code(fic_mis_date, process_name):
             return
 
         # Step 3: Group the data by v_prod_code and sum the bucket values
-        grouped_data = cashflow_buckets.values('v_prod_code', 'v_ccy_code', 'financial_element').annotate(
+        grouped_data = cashflow_buckets.values('v_prod_code', 'v_ccy_code', 'v_loan_type','financial_element').annotate(
             bucket_1=Sum('bucket_1'),
             bucket_2=Sum('bucket_2'),
             bucket_3=Sum('bucket_3'),
@@ -81,6 +81,7 @@ def aggregate_by_prod_code(fic_mis_date, process_name):
                     v_prod_code=record['v_prod_code'],
                     fic_mis_date=fic_mis_date,
                     process_name=process_name,
+                    v_loan_type=record ['v_loan_type'],
                     financial_element=record['financial_element']
                 ).first()
 
@@ -93,6 +94,7 @@ def aggregate_by_prod_code(fic_mis_date, process_name):
                     process_name=process_name,
                     v_prod_code=record['v_prod_code'],
                     v_ccy_code=record['v_ccy_code'],
+                    v_loan_type=record['v_loan_type'],
                     financial_element=record['financial_element'],
                     cashflow_by_bucket=cashflow_by_bucket,  # Link to AggregatedCashflowByBucket
                     time_bucket_master=time_bucket_master,  # Link to TimeBucketMaster

@@ -22,9 +22,7 @@ from .Functions.behavioral_pattern_utils import define_behavioral_pattern_from_f
 from .Functions.time_bucket_utils import define_time_bucket_from_form_data, update_time_bucket_from_form_data, delete_time_bucket_by_id
 from .Functions.product_filter_utils import *
 from .Functions.process_utils import *
-from .forms import TimeBucketsForm
-from .models import TimeBuckets
-from .models import FSI_Expected_Cashflow
+from .Functions.cashflow import *
 
 from datetime import datetime, timedelta
 from django.shortcuts import render, redirect
@@ -312,30 +310,33 @@ class ProcessListView(ListView):
     context_object_name = 'processes'
 
 def process_create_view(request):
-    # Check if 'step' is in the session; otherwise, initialize it to 1
     step = request.session.get('step', 1)
     print(f"\n=== Current Step: {step} ===")
 
     # Step 1: Define Process Name and Description
     if step == 1:
         if request.method == 'POST':
-            # Save process name and description from POST data
             process_name = request.POST.get('name')
             process_description = request.POST.get('description')
-            print(f"Step 1 - Name: {process_name}, Description: {process_description}")
+            use_behavioral_patterns = request.POST.get('use_behavioral_patterns')
 
-            # Check if process name is provided
+            # Validate Process Name
             if not process_name:
                 messages.error(request, "Process name is required.")
                 return render(request, 'ALM_APP/filters/process_create.html', {'step': step})
 
-            # Save the data to the session and proceed to the next step
+            # Save details in session and proceed
             request.session['process_name'] = process_name
             request.session['process_description'] = process_description
-            request.session['step'] = 2  # Explicitly update to Step 2
+            request.session['use_behavioral_patterns'] = use_behavioral_patterns
+
+            # If behavioral patterns are used, skip to Step 3
+            if use_behavioral_patterns == 'yes':
+                request.session['step'] = 3
+            else:
+                request.session['step'] = 2  # Proceed to filter selection
             return redirect('process_create')
 
-        # Render step 1 form if not a POST request
         return render(request, 'ALM_APP/filters/process_create.html', {'step': step})
 
     # Step 2: Select Filters for the Process
@@ -343,15 +344,11 @@ def process_create_view(request):
         filters = ProductFilter.objects.all()
         if request.method == 'POST':
             if 'previous' in request.POST:
-                request.session['step'] = 1  # Go back to step 1
+                request.session['step'] = 1
                 return redirect('process_create')
             else:
-                # Save selected filters to the session
                 selected_filters = request.POST.getlist('filters')
                 request.session['selected_filters'] = selected_filters
-                print(f"Step 2 - Selected Filters: {selected_filters}")
-
-                # Move to the next step
                 request.session['step'] = 3
                 return redirect('process_create')
 
@@ -361,24 +358,23 @@ def process_create_view(request):
     elif step == 3:
         process_name = request.session.get('process_name')
         process_description = request.session.get('process_description')
+        use_behavioral_patterns = request.session.get('use_behavioral_patterns')
         selected_filters = request.session.get('selected_filters', [])
         filters = ProductFilter.objects.filter(id__in=selected_filters)
-        
-        print(f"Step 3 - Name: {process_name}, Description: {process_description}, Filters: {selected_filters}")
 
         if request.method == 'POST':
             if 'previous' in request.POST:
-                request.session['step'] = 2  # Go back to step 2
+                request.session['step'] = 2 if use_behavioral_patterns == 'no' else 1
                 return redirect('process_create')
             else:
-                # Finalize and save the process
+                # Save the process
                 process = finalize_process_creation(request)
                 messages.success(request, f"Process '{process.name}' created successfully.")
-                print(f"Process '{process.name}' created successfully.")
                 
-                # Clear session data related to this process creation
+                # Clear session
                 request.session.pop('process_name', None)
                 request.session.pop('process_description', None)
+                request.session.pop('use_behavioral_patterns', None)
                 request.session.pop('selected_filters', None)
                 request.session.pop('step', None)
                 
@@ -388,12 +384,17 @@ def process_create_view(request):
             'step': step,
             'process_name': process_name,
             'process_description': process_description,
-            'selected_filters': filters
+            'selected_filters': filters,
+            'use_behavioral_patterns': use_behavioral_patterns
         })
 
-    # If no valid step, default to Step 1 and initialize session data
     request.session['step'] = 1
     return redirect('process_create')
+
+
+
+
+
 
 def execute_process_view(request):
     if request.method == 'POST':
@@ -409,7 +410,13 @@ def execute_process_view(request):
         process = get_object_or_404(Process, id=process_id)
 
         try:
-            calculate_time_buckets_and_spread(process.name, fic_mis_date)
+            if process.uses_behavioral_patterns:
+                # If the process uses behavioral patterns, skip filtering and use the behavioral patterns directly
+                calculate_behavioral_pattern_distribution(process.name, fic_mis_date)
+            else:
+                # Normal process without behavioral patterns
+                calculate_time_buckets_and_spread(process.name, fic_mis_date)
+
             messages.success(request, f"Process '{process.name}' executed successfully.")
         except Exception as e:
             messages.error(request, f"Error executing process: {e}")
@@ -417,7 +424,6 @@ def execute_process_view(request):
         return redirect('process_list')
 
     return render(request, 'ALM_APP/filters/process_execute.html')
-
 class ProcessUpdateView(UpdateView):
     model = Process
     form_class = ProcessForm
@@ -462,14 +468,16 @@ class ProcessDeleteView(DeleteView):
 
 # View to project cash flows based on the fic_mis_date parameter
 def project_cash_flows_view(request):
-    process_name='contractual'
+    process_name='b'
     fic_mis_date = '2024-08-31'
-    status= aggregate_by_prod_code(fic_mis_date, process_name)
+    # status= aggregate_by_prod_code(fic_mis_date, process_name)
     status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
     #status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
-    #status= aggregate_cashflows_to_product_level(fic_mis_date)
+    # status= aggregate_cashflows_to_product_level(fic_mis_date)
+    # status= project_cash_flows(fic_mis_date)       
+
     print(status)
-    #project_cash_flows(fic_mis_date)       
+    # project_cash_flows(fic_mis_date)       
     return render(request, 'ALM_APP/project_cash_flows.html')
 
 

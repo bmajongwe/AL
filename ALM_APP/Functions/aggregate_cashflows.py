@@ -19,6 +19,8 @@ def insert_product_level_cashflows_chunk(records_chunk):
                     n_total_interest_payment=record['n_total_interest_payment'],
                     n_total_balance=record['n_total_balance'],
                     v_ccy_code=record['v_ccy_code'],
+                    v_loan_type=record['v_loan_type'],  # Insert loan type
+                    V_CASH_FLOW_TYPE=record['V_CASH_FLOW_TYPE'],  # Insert cash flow type
                 )
             except Exception as e:
                 print(f"Error inserting record for product {record['v_prod_code']}: {str(e)}")
@@ -39,7 +41,7 @@ def aggregate_cashflows_to_product_level(fic_mis_date, chunk_size=100):
     # Step 2: Aggregate the cashflows by product code, account number, and cashflow date
     cashflow_data = (
         FSI_Expected_Cashflow.objects.filter(fic_mis_date=fic_mis_date)
-        .values('v_account_number', 'fic_mis_date', 'd_cash_flow_date', 'n_cash_flow_bucket', 'V_CCY_CODE')  # Include the n_cash_flow_bucket and v_account_number
+        .values('v_account_number', 'fic_mis_date', 'd_cash_flow_date', 'n_cash_flow_bucket', 'V_CCY_CODE', 'v_loan_type', 'V_CASH_FLOW_TYPE')  # Include v_loan_type and V_CASH_FLOW_TYPE
         .annotate(
             n_total_cash_flow_amount=Sum('n_cash_flow_amount'),
             n_total_principal_payment=Sum('n_principal_payment'),
@@ -75,6 +77,8 @@ def aggregate_cashflows_to_product_level(fic_mis_date, chunk_size=100):
                     'n_total_interest_payment': cashflow['n_total_interest_payment'],
                     'n_total_balance': cashflow['n_total_balance'],
                     'v_ccy_code': cashflow['V_CCY_CODE'],
+                    'v_loan_type': cashflow['v_loan_type'],  # Include loan type from FSI_Expected_Cashflow
+                    'V_CASH_FLOW_TYPE': cashflow['V_CASH_FLOW_TYPE'],  # Include cash flow type from FSI_Expected_Cashflow
                 })
             else:
                 print(f"No matching product found for account number: {cashflow['v_account_number']}")

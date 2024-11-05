@@ -18,7 +18,7 @@
     </div>
     {% endif %}
     
-    <!-- Step 1: Process Name and Description -->
+    <!-- Step 1: Process Name and Description with Option for Behavioral Patterns -->
     {% if step == 1 %}
     <form method="post" action="{% url 'process_create' %}">
         {% csrf_token %}
@@ -34,11 +34,19 @@
                 <label for="description">Description</label>
                 <textarea class="form-control" id="description" name="description">{{ request.session.process_description }}</textarea>
             </div>
+            <div class="form-group">
+                <label for="use_behavioral_patterns">Use Behavioral Patterns?</label>
+                <select class="form-control" id="use_behavioral_patterns" name="use_behavioral_patterns">
+                    <option value="no" {% if request.session.use_behavioral_patterns == "no" %}selected{% endif %}>No</option>
+                    <option value="yes" {% if request.session.use_behavioral_patterns == "yes" %}selected{% endif %}>Yes</option>
+                </select>
+                <small class="form-text text-muted">If 'Yes', filters will be skipped and all patterns will be applied automatically.</small>
+            </div>
             <button type="submit" class="btn btn-primary btn-block">Next</button>
         </div>
     </form>
-    
-    <!-- Step 2: Select Filters -->
+
+    <!-- Step 2: Select Filters (Skipped if Behavioral Patterns are selected) -->
     {% elif step == 2 %}
     <form method="post" action="{% url 'process_create' %}">
         {% csrf_token %}
@@ -61,7 +69,7 @@
             <button type="submit" class="btn btn-primary">Next</button>
         </div>
     </form>
-    
+
     <!-- Step 3: Confirm and Execute -->
     {% elif step == 3 %}
     <form method="post" action="{% url 'process_create' %}">
@@ -78,6 +86,14 @@
                 <label>Description:</label>
                 <p>{{ process_description }}</p>
             </div>
+
+            <!-- Display either Behavioral Patterns or Selected Filters -->
+            {% if request.session.use_behavioral_patterns == "yes" %}
+            <div class="form-group">
+                <label>Behavioral Patterns:</label>
+                <p>All behavioral patterns will be applied automatically.</p>
+            </div>
+            {% else %}
             <div class="form-group">
                 <label>Selected Filters:</label>
                 <ul>
@@ -88,6 +104,8 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
+            
             <button type="submit" name="previous" class="btn btn-secondary">Back</button>
             <button type="submit" class="btn btn-success">Finish</button>
         </div>

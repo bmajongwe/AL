@@ -138,10 +138,13 @@ class Ldn_Financial_Instrument(models.Model):
         db_table = 'Ldn_Financial_Instrument'
 
 
+
 class product_level_cashflows(models.Model):
     fic_mis_date = models.DateField(null=False)
     v_account_number = models.CharField(max_length=255, null=False)
     v_prod_code = models.CharField(max_length=50, null=False)
+    v_loan_type = models.CharField(max_length=50, null=True)
+    V_CASH_FLOW_TYPE = models.CharField(max_length=50, null=True, blank=True)  # Example field for cash flow type
     n_cash_flow_bucket = models.IntegerField() 
     d_cashflow_date = models.DateField()  # New field to store the cashflow date
     n_total_cash_flow_amount = models.DecimalField(max_digits=20, decimal_places=2)
@@ -202,17 +205,22 @@ class NewFinancialTable(models.Model):
 class FSI_Expected_Cashflow(models.Model):
     fic_mis_date = models.DateField()
     v_account_number = models.CharField(max_length=50)
+    v_loan_type = models.CharField(max_length=50, null=True)
     n_cash_flow_bucket = models.IntegerField() 
     d_cash_flow_date = models.DateField()
     n_principal_payment = models.DecimalField(max_digits=20, decimal_places=2)
     n_interest_payment = models.DecimalField(max_digits=20, decimal_places=2)
     n_cash_flow_amount = models.DecimalField(max_digits=20, decimal_places=2)
     n_balance = models.DecimalField(max_digits=20, decimal_places=2)
+    n_accrued_interest = models.DecimalField(max_digits=22, decimal_places=3, null=True, blank=True)  # Accrued interest
+    n_exposure_at_default = models.DecimalField(max_digits=22, decimal_places=3, null=True, blank=True) 
     V_CASH_FLOW_TYPE = models.CharField(max_length=10)
+    management_fee_added = models.DecimalField(max_digits=20, decimal_places=2)
     V_CCY_CODE = models.CharField(max_length=3)
 
     class Meta:
         db_table = 'FSI_Expected_Cashflow'
+        unique_together = ('fic_mis_date', 'v_account_number', 'd_cash_flow_date')
 
 
 class Fsi_Interest_Method(models.Model):
@@ -248,6 +256,7 @@ class ProductFilter(models.Model):
 class Process(models.Model):
     name = models.CharField(max_length=100)  # Name of the process (e.g., 'contractual', 'forecast', etc.
     description = models.TextField(null=True, blank=True)  # Optional description for the process
+    uses_behavioral_patterns = models.BooleanField(default=False)
     filters = models.ManyToManyField(ProductFilter, related_name='processes')
     execution_date = models.DateTimeField(null=True, blank=True)  # Optional field to track last execution date
     status = models.CharField(max_length=20, default='Pending')  # Track status (e.g., 'Pending', 'Completed')
@@ -274,7 +283,7 @@ class Ldn_Product_Master(models.Model):  # Class name with underscores
     v_prod_code = models.CharField(max_length=20, null=False)  # VARCHAR2(20)
     fic_mis_date = models.DateField(null=False)  # DATE
     v_prod_name = models.CharField(max_length=255, null=True)  # VARCHAR2(255)
-    v_prod_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20)
+    v_prod_type = models.CharField(max_length=255, null=True)  # VARCHAR2(20)
     v_prod_group_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255)
     f_prod_rate_sensitivity = models.CharField(max_length=1, null=True)  # VARCHAR2(1)
     v_common_coa_code = models.CharField(max_length=20, null=True)  # VARCHAR2(20)
@@ -321,6 +330,7 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_group_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     f_prod_rate_sensitivity = models.CharField(max_length=1, null=True)  # VARCHAR2(1 CHAR)
+    v_account_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     v_prod_branch_code = models.CharField(max_length=10, null=True)  # VARCHAR2(10 CHAR)
     v_prod_code_level1 = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     n_prod_skey = models.BigIntegerField(null=False)  # NUMBER(14,0) NOT NULL
@@ -364,6 +374,8 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_code_level5_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level6_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level7_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
+    v_flow_type = models.CharField(max_length=10, choices=[('Inflow', 'Inflow'), ('Outflow', 'Outflow')], null=True, blank=True)
+
 
     class Meta:
         db_table = 'DIM_PRODUCT'  # Explicitly set the table name
@@ -546,6 +558,7 @@ class AggregatedCashflowByBuckets(models.Model):
     process_name = models.CharField(max_length=100)  # Process name to identify different cashflow processes
     v_account_number = models.CharField(max_length=50)  # Account number being aggregated
     v_prod_code = models.CharField(max_length=50)  # Product code to identify the product
+    v_loan_type = models.CharField(max_length=50, null=True)
     v_ccy_code = models.CharField(max_length=10, null=True, blank=True)  # Optional currency code
     financial_element = models.CharField(max_length=50)  # Either 'n_total_cash_flow_amount', 'n_total_principal_payment', or 'n_total_interest_payment'
      # Foreign Key to TimeBucketMaster
@@ -610,6 +623,7 @@ class AggregatedCashflowByBuckets(models.Model):
 class Aggregated_Prod_Cashflow_Base(models.Model):
     fic_mis_date = models.DateField()  # The base date from product_level_cashflows
     process_name = models.CharField(max_length=100)  # Process name to identify different cashflow processes
+    v_loan_type = models.CharField(max_length=50, null=True)
     v_prod_code = models.CharField(max_length=50)  # Product code  being aggregated
     v_ccy_code = models.CharField(max_length=10, null=False, blank=False)  #  currency code
     financial_element = models.CharField(max_length=50)  # Either 'n_total_cash_flow_amount', 'n_total_principal_payment', or 'n_total_interest_payment'

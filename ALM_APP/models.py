@@ -283,7 +283,7 @@ class Ldn_Product_Master(models.Model):  # Class name with underscores
     v_prod_code = models.CharField(max_length=20, null=False)  # VARCHAR2(20)
     fic_mis_date = models.DateField(null=False)  # DATE
     v_prod_name = models.CharField(max_length=255, null=True)  # VARCHAR2(255)
-    v_prod_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20)
+    v_prod_type = models.CharField(max_length=255, null=True)  # VARCHAR2(20)
     v_prod_group_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255)
     f_prod_rate_sensitivity = models.CharField(max_length=1, null=True)  # VARCHAR2(1)
     v_common_coa_code = models.CharField(max_length=20, null=True)  # VARCHAR2(20)
@@ -330,6 +330,7 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_group_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     f_prod_rate_sensitivity = models.CharField(max_length=1, null=True)  # VARCHAR2(1 CHAR)
+    v_account_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     v_prod_branch_code = models.CharField(max_length=10, null=True)  # VARCHAR2(10 CHAR)
     v_prod_code_level1 = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     n_prod_skey = models.BigIntegerField(null=False)  # NUMBER(14,0) NOT NULL
@@ -373,6 +374,8 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_code_level5_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level6_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level7_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
+    v_flow_type = models.CharField(max_length=10, choices=[('Inflow', 'Inflow'), ('Outflow', 'Outflow')], null=True, blank=True)
+
 
     class Meta:
         db_table = 'DIM_PRODUCT'  # Explicitly set the table name

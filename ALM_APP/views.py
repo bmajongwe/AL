@@ -11,6 +11,7 @@ from django.contrib import messages  # Import messages framework
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.conf import settings
+
 from .forms import *
 from datetime import datetime
 from django.http import HttpResponse
@@ -20,6 +21,7 @@ from .Functions.aggregate_cashflows import *
 from .Functions.Aggregated_Acc_level_cashflows import *
 from .Functions.behavioral_pattern_utils import define_behavioral_pattern_from_form_data, delete_behavioral_pattern_by_id, update_behavioral_pattern_from_form_data
 from .Functions.time_bucket_utils import define_time_bucket_from_form_data, update_time_bucket_from_form_data, delete_time_bucket_by_id
+from .Functions.populate_dim import populate_dim_product
 from .Functions.product_filter_utils import *
 from .Functions.process_utils import *
 from .Functions.cashflow import *
@@ -470,8 +472,9 @@ class ProcessDeleteView(DeleteView):
 def project_cash_flows_view(request):
     process_name='b'
     fic_mis_date = '2024-08-31'
+    status=populate_dim_product(fic_mis_date)
     # status= aggregate_by_prod_code(fic_mis_date, process_name)
-    status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
+    # status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
     #status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
     # status= aggregate_cashflows_to_product_level(fic_mis_date)
     # status= project_cash_flows(fic_mis_date)       

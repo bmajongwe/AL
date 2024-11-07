@@ -319,7 +319,7 @@ class Ldn_Common_Coa_Master(models.Model):  # Class with underscores in the name
 
 class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
-    v_prod_code = models.CharField(max_length=20, null=False)  # VARCHAR2(20 CHAR) NOT NULL
+    v_prod_code = models.CharField(max_length=255, null=False)  # VARCHAR2(20 CHAR) NOT NULL
     fic_mis_date = models.DateField(null=True)  # DATE
     v_prod_family_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level3 = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
@@ -328,7 +328,7 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     d_record_end_date = models.DateField(null=True)  # DATE
     d_record_start_date = models.DateField(null=True)  # DATE
     v_prod_group_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
-    v_prod_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
+    v_prod_type = models.CharField(max_length=255, null=True)  # VARCHAR2(20 CHAR)
     f_prod_rate_sensitivity = models.CharField(max_length=1, null=True)  # VARCHAR2(1 CHAR)
     v_account_type = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
     v_prod_branch_code = models.CharField(max_length=10, null=True)  # VARCHAR2(10 CHAR)
@@ -348,7 +348,7 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     n_product_id_level05 = models.BigIntegerField(null=True)  # NUMBER(14,0)
     n_product_id_level06 = models.BigIntegerField(null=True)  # NUMBER(14,0)
     n_product_id_level07 = models.BigIntegerField(null=True)  # NUMBER(14,0)
-    v_balance_sheet_category = models.CharField(max_length=20, null=True)  # VARCHAR2(20 CHAR)
+    v_balance_sheet_category = models.CharField(max_length=255, null=True)  # VARCHAR2(20 CHAR)
     v_balance_sheet_category_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_created_by = models.CharField(max_length=40, null=True)  # VARCHAR2(40 CHAR)
     v_last_modified_by = models.CharField(max_length=30, null=True)  # VARCHAR2(30 CHAR)
@@ -374,7 +374,7 @@ class Dim_Product(models.Model):  # Class with underscores in the name
     v_prod_code_level5_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level6_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
     v_prod_code_level7_desc = models.CharField(max_length=255, null=True)  # VARCHAR2(255 CHAR)
-    v_flow_type = models.CharField(max_length=10, choices=[('Inflow', 'Inflow'), ('Outflow', 'Outflow')], null=True, blank=True)
+    v_flow_type = models.CharField(max_length=20, choices=[('Inflow', 'Inflow'), ('Outflow', 'Outflow')], null=True, blank=True)
 
 
     class Meta:
@@ -685,9 +685,8 @@ class Aggregated_Prod_Cashflow_Base(models.Model):
     bucket_50 = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Sum for bucket 50
 
     class Meta:
-        unique_together = ('fic_mis_date', 'process_name', 'financial_element')  # Ensure uniqueness
-
-    def __str__(self):
+        # unique_together = ('fic_mis_date', 'process_name', 'financial_element')  # Ensure uniqueness
+      def __str__(self):
         return f"{self.process_name} - Account: {self.v_prod_code} ({self.financial_element})"
     
 

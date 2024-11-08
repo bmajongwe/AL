@@ -6,7 +6,7 @@ def populate_dim_product(fic_mis_date):
     """
     Populate Dim_Product using records from Ldn_Financial_Instrument based on the provided fic_mis_date,
     and data from Ldn_Product_Master and Ldn_Common_Coa_Master based on their respective maximum fic_mis_date.
-    Deletes existing Dim_Product records for the same fic_mis_date to handle reruns.
+    Only distinct v_prod_code values are inserted, and if a product code is already populated, it is skipped.
     """
     try:
         # Step 0: Delete existing records in Dim_Product for the given fic_mis_date
@@ -59,6 +59,11 @@ def populate_dim_product(fic_mis_date):
         new_records_count = 0
         with transaction.atomic():
             for fin_inst in financial_instruments:
+                # Check if the product code already exists in Dim_Product for the given fic_mis_date
+                if Dim_Product.objects.filter(fic_mis_date=fic_mis_date, v_prod_code=fin_inst.v_prod_code).exists():
+                    print(f"Skipping product code {fin_inst.v_prod_code} as it already exists for fic_mis_date {fic_mis_date}.")
+                    continue  # Skip this product code if it already exists
+
                 # Find the linked product and COA records
                 product_record = product_lookup.get(fin_inst.v_prod_code)
                 coa_record = coa_lookup.get(product_record.v_common_coa_code if product_record else None)

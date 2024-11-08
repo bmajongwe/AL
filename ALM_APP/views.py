@@ -17,6 +17,7 @@ from datetime import datetime
 from django.http import HttpResponse
 from .Functions.Aggregated_Prod_Cashflow_Base import *
 from .Functions.populate_liquidity_gap_results_base import *
+from .Functions.ldn_update import *
 from .Functions.aggregate_cashflows import *
 from .Functions.Aggregated_Acc_level_cashflows import *
 from .Functions.behavioral_pattern_utils import define_behavioral_pattern_from_form_data, delete_behavioral_pattern_by_id, update_behavioral_pattern_from_form_data
@@ -474,6 +475,7 @@ def project_cash_flows_view(request):
     fic_mis_date = '2024-08-31'
     # status=populate_dim_product(fic_mis_date)
     # status= aggregate_by_prod_code(fic_mis_date, process_name)
+    # status=update_date(fic_mis_date)
     status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
     # status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
     # status= aggregate_cashflows_to_product_level(fic_mis_date)

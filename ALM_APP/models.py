@@ -476,7 +476,8 @@ class Dim_Fcst_Rates_Scenario(models.Model):  # Class with underscores in the na
 
 class Dim_Dates(models.Model):  # Class with underscores in the name
     n_date_skey = models.BigIntegerField(null=False)  # NUMBER(10,0) NOT NULL
-    d_calendar_date = models.DateField(null=False)  # DATE NOT NULL
+    fic_mis_date = models.DateField()  # Ensure this exists
+    d_calendar_date = models.DateField(null=True)  # DATE NOT NULL
     n_half_calendar = models.IntegerField(null=True)  # NUMBER(2,0)
     n_month_calendar = models.IntegerField(null=True)  # NUMBER(2,0)
     n_qtr_calendar = models.IntegerField(null=True)  # NUMBER(1,0)
@@ -497,8 +498,9 @@ class Dim_Dates(models.Model):  # Class with underscores in the name
     d_created_date = models.DateField(null=True)  # DATE
     v_last_modified_by = models.CharField(max_length=30, null=True)  # VARCHAR2(30 CHAR)
     d_last_modified_date = models.DateField(null=True)  # DATE
-    d_start_date = models.DateField(null=True)  # DATE
-    d_end_date = models.DateField(null=True)  # DATE
+    bucket_start_date = models.DateField(null=True)  # DATE
+    bucket_end_date = models.DateField(null=True)  # DATE
+    bucket_number = models.IntegerField(null=True)  # New field for bucket number
     f_latest_record_indicator = models.CharField(max_length=1, null=True)  # CHAR(1 CHAR)
     d_fiscal_quarter_start_date = models.DateField(null=True)  # DATE
     d_fiscal_quarter_end_date = models.DateField(null=True)  # DATE

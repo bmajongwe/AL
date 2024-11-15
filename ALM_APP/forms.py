@@ -44,6 +44,45 @@ class ProcessForm(forms.ModelForm):
         required=False
     )
 
+
+
     class Meta:
         model = Process
         fields = ['name', 'filters']
+
+
+
+# forms.py
+from django import forms
+from .models import LiquidityGapResultsBase
+
+class LiquidityGapReportFilterForm(forms.Form):
+    process_name = forms.ChoiceField(
+        required=False,
+        choices=[('', '--- Select Process ---')] + [(p, p) for p in LiquidityGapResultsBase.objects.values_list('process_name', flat=True).distinct()],
+        label="Process"
+    )
+    fic_mis_date = forms.ChoiceField(
+        choices=[('', '-- Select Date --')] + [
+            (choice, choice) for choice in LiquidityGapResultsBase.objects.values_list('fic_mis_date', flat=True).distinct().order_by('fic_mis_date')
+        ],
+        required=False,
+        label="As of Date"
+    )
+    v_ccy_code = forms.ChoiceField(
+        required=False,
+        choices=[('', '--- Select Currency ---')] + [(c, c) for c in LiquidityGapResultsBase.objects.values_list('v_ccy_code', flat=True).distinct()],
+        label="Currency"
+    )
+    account_type = forms.ChoiceField(
+        required=False,
+        choices=[('', '--- Select Result Type ---'), ('Inflow', 'Inflow'), ('Outflow', 'Outflow')],
+        label="Result Type"
+    )
+    bucket_number = forms.ChoiceField(
+        choices=[('', '-- Select Bucket Number --')] + [
+            (choice, choice) for choice in LiquidityGapResultsBase.objects.values_list('bucket_number', flat=True).distinct().order_by('bucket_end_date')
+        ],
+        required=False,
+        label="Bucket End Date"
+    )

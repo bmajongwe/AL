@@ -23,6 +23,7 @@ from .Functions.Aggregated_Acc_level_cashflows import *
 from .Functions.behavioral_pattern_utils import define_behavioral_pattern_from_form_data, delete_behavioral_pattern_by_id, update_behavioral_pattern_from_form_data
 from .Functions.time_bucket_utils import define_time_bucket_from_form_data, update_time_bucket_from_form_data, delete_time_bucket_by_id
 from .Functions.populate_dim import populate_dim_product
+from .Functions.Dim_dates import *
 from .Functions.product_filter_utils import *
 from .Functions.process_utils import *
 from .Functions.cashflow import *
@@ -466,6 +467,249 @@ class ProcessDeleteView(DeleteView):
 
 
 
+
+
+
+
+
+
+from django.shortcuts import render
+from .models import LiquidityGapResultsBase
+from .forms import LiquidityGapReportFilterForm
+from .Functions.liquidity_gap_utils import *
+from django.contrib import messages
+
+def liquidity_gap_report(request):
+    # Initialize the form with GET parameters
+    form = LiquidityGapReportFilterForm(request.GET or None)
+
+    # Start with the full queryset
+    queryset = LiquidityGapResultsBase.objects.all()
+
+    # Get fic_mis_date from the form or fallback to the latest date in Dim_Dates
+    fic_mis_date = form.cleaned_data.get('fic_mis_date') if form.is_valid() else None
+    if not fic_mis_date:
+        fic_mis_date = get_latest_fic_mis_date()
+        if not fic_mis_date:
+            messages.error(request, "No data available for the selected filters.")
+            return render(request, 'ALM_APP/reports/liquidity_gap_report.html', {'form': form})
+
+    # Get date buckets for fic_mis_date
+    date_buckets = get_date_buckets(fic_mis_date)
+    if not date_buckets.exists():
+        messages.error(request, "No date buckets available for the selected filters.")
+        return render(request, 'ALM_APP/reports/liquidity_gap_report.html', {'form': form})
+
+    # Filter the queryset by form fields
+    queryset = filter_queryset_by_form(form, queryset)
+    queryset = queryset.filter(fic_mis_date=fic_mis_date)
+
+    # Prepare inflow and outflow data
+    inflow_data, outflow_data = prepare_inflow_outflow_data(queryset)
+
+    # Separate the first item of inflow and outflow data for easy access in the template
+    first_inflow_product, remaining_inflow_data = None, inflow_data.copy()
+    first_outflow_product, remaining_outflow_data = None, outflow_data.copy()
+
+    if inflow_data:
+        first_inflow_product = list(inflow_data.items())[0]
+        remaining_inflow_data.pop(first_inflow_product[0], None)
+
+    if outflow_data:
+        first_outflow_product = list(outflow_data.items())[0]
+        remaining_outflow_data.pop(first_outflow_product[0], None)
+
+    # Calculate total inflows, outflows, net liquidity gap, and cumulative gap
+    net_liquidity_gap, net_gap_percentage, cumulative_gap = calculate_totals(date_buckets, inflow_data, outflow_data)
+
+    # Calculate horizontal totals for each product in inflows and outflows
+    for product, buckets in inflow_data.items():
+        inflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
+
+    for product, buckets in outflow_data.items():
+        outflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
+
+    # Calculate horizontal totals for net liquidity gap, net gap percentage, and cumulative gap
+    net_liquidity_gap['total'] = sum(net_liquidity_gap[bucket['bucket_number']] for bucket in date_buckets)
+    net_gap_percentage['total'] = sum(net_gap_percentage[bucket['bucket_number']] for bucket in date_buckets) / len(date_buckets)
+
+    # Safely access the last item for cumulative gap
+    last_bucket = date_buckets.last()
+    if last_bucket:
+        cumulative_gap['total'] = cumulative_gap[last_bucket['bucket_number']]
+    else:
+        cumulative_gap['total'] = 0
+
+    # Calculate total columns (date buckets + 2 for "Account Type" and "Product")
+    total_columns = len(date_buckets) + 3  # Adding one more for "Total" column
+
+    # Prepare context for rendering in the template
+    context = {
+        'form': form,
+        'fic_mis_date': fic_mis_date,
+        'date_buckets': date_buckets,
+        'first_inflow_product': first_inflow_product,
+        'remaining_inflow_data': remaining_inflow_data,
+        'first_outflow_product': first_outflow_product,
+        'remaining_outflow_data': remaining_outflow_data,
+        'currency_code': "BWP",  # Example currency code
+        'total_columns': total_columns,
+        'net_liquidity_gap': net_liquidity_gap,
+        'net_gap_percentage': net_gap_percentage,
+        'cumulative_gap': cumulative_gap,
+    }
+
+    return render(request, 'ALM_APP/reports/liquidity_gap_report.html', context)
+
+
+
+
+
+
+# from django.shortcuts import render
+# from .models import LiquidityGapResultsBase, Dim_Dates
+# from .forms import LiquidityGapReportFilterForm
+# from django.db.models import Sum
+# from django.contrib import messages  # Import for user messages
+# from datetime import date
+
+# def liquidity_gap_report(request):
+#     # Initialize the form with GET parameters
+#     form = LiquidityGapReportFilterForm(request.GET or None)
+
+#     # Start with the full queryset
+#     queryset = LiquidityGapResultsBase.objects.all()
+
+#     # Apply filters if they are provided
+#     fic_mis_date = None
+#     if form.is_valid():
+#         process_name = form.cleaned_data.get('process_name')
+#         fic_mis_date = form.cleaned_data.get('fic_mis_date')
+#         v_ccy_code = form.cleaned_data.get('v_ccy_code')
+#         account_type = form.cleaned_data.get('account_type')
+#         bucket_number = form.cleaned_data.get('bucket_number')
+
+#         if process_name:
+#             queryset = queryset.filter(process_name=process_name)
+#         if fic_mis_date:
+#             queryset = queryset.filter(fic_mis_date=fic_mis_date)
+#         if v_ccy_code:
+#             queryset = queryset.filter(v_ccy_code=v_ccy_code)
+#         if account_type:
+#             queryset = queryset.filter(account_type=account_type)
+#         if bucket_number:
+#             queryset = queryset.filter(bucket_number=bucket_number)
+
+#     # Fallback to the latest fic_mis_date in Dim_Dates if fic_mis_date is not set
+#     if not fic_mis_date:
+#         try:
+#             fic_mis_date = Dim_Dates.objects.latest('fic_mis_date').fic_mis_date
+#         except Dim_Dates.DoesNotExist:
+#             messages.error(request, "No data available for the selected filters.")
+#             return render(request, 'ALM_APP/reports/liquidity_gap_report.html', {'form': form})
+
+#     # Filter Dim_Dates by fic_mis_date for date buckets
+#     date_buckets = Dim_Dates.objects.filter(fic_mis_date=fic_mis_date).values(
+#         'bucket_number', 'bucket_start_date', 'bucket_end_date'
+#     ).distinct().order_by('bucket_number')
+
+#     # Check if no date buckets found
+#     if not date_buckets.exists():
+#         messages.error(request, "No date buckets available for the selected filters.")
+#         return render(request, 'ALM_APP/reports/liquidity_gap_report.html', {'form': form})
+
+#     # Further filter LiquidityGapResultsBase by fic_mis_date if it's not None
+#     queryset = queryset.filter(fic_mis_date=fic_mis_date)
+
+#     # Separate inflows and outflows, grouped by product type and bucket number
+#     inflow_products = queryset.filter(account_type="Inflow").values('v_prod_type', 'bucket_number').annotate(total=Sum('inflows'))
+#     outflow_products = queryset.filter(account_type="Outflow").values('v_prod_type', 'bucket_number').annotate(total=Sum('outflows'))
+
+#     # Prepare data structure for inflows and outflows
+#     inflow_data = {}
+#     outflow_data = {}
+
+#     for item in inflow_products:
+#         prod_type = item['v_prod_type']
+#         bucket = item['bucket_number']
+#         total = item['total']
+#         if prod_type not in inflow_data:
+#             inflow_data[prod_type] = {}
+#         inflow_data[prod_type][bucket] = total
+
+#     for item in outflow_products:
+#         prod_type = item['v_prod_type']
+#         bucket = item['bucket_number']
+#         total = item['total']
+#         if prod_type not in outflow_data:
+#             outflow_data[prod_type] = {}
+#         outflow_data[prod_type][bucket] = total
+
+#     # Get the first item of inflow and outflow data for easy access in the template
+#     first_inflow_product, remaining_inflow_data = None, inflow_data.copy()
+#     first_outflow_product, remaining_outflow_data = None, outflow_data.copy()
+
+#     if inflow_data:
+#         first_inflow_product = list(inflow_data.items())[0]
+#         remaining_inflow_data.pop(first_inflow_product[0], None)
+
+#     if outflow_data:
+#         first_outflow_product = list(outflow_data.items())[0]
+#         remaining_outflow_data.pop(first_outflow_product[0], None)
+
+#     # Calculate total inflows and total outflows by bucket
+#     total_inflows_by_bucket = {}
+#     total_outflows_by_bucket = {}
+
+#     for bucket in date_buckets:
+#         bucket_number = bucket['bucket_number']
+#         total_inflows_by_bucket[bucket_number] = sum(inflow_data.get(prod, {}).get(bucket_number, 0) for prod in inflow_data)
+#         total_outflows_by_bucket[bucket_number] = sum(outflow_data.get(prod, {}).get(bucket_number, 0) for prod in outflow_data)
+
+#     # Calculate Net Liquidity Gap, Net Gap as % of Total Outflows, and Cumulative Gap
+#     net_liquidity_gap = {bucket: total_inflows_by_bucket[bucket] - total_outflows_by_bucket[bucket] for bucket in total_inflows_by_bucket}
+#     net_gap_percentage = {bucket: (net_liquidity_gap[bucket] / total_outflows_by_bucket[bucket] * 100) if total_outflows_by_bucket[bucket] else 0 for bucket in total_outflows_by_bucket}
+    
+#     cumulative_gap = {}
+#     cumulative_total = 0
+#     for bucket in date_buckets:
+#         bucket_number = bucket['bucket_number']
+#         cumulative_total += net_liquidity_gap[bucket_number]
+#         cumulative_gap[bucket_number] = cumulative_total
+
+#     # Calculate total columns (date buckets + 2 for "Account Type" and "Product")
+#     total_columns = len(date_buckets) + 2
+
+#     # Prepare context for rendering in the template
+#     context = {
+#         'form': form,
+#         'fic_mis_date': fic_mis_date,
+#         'date_buckets': date_buckets,
+#         'first_inflow_product': first_inflow_product,
+#         'remaining_inflow_data': remaining_inflow_data,
+#         'first_outflow_product': first_outflow_product,
+#         'remaining_outflow_data': remaining_outflow_data,
+#         'currency_code': "BWP",  # Example currency code
+#         'total_columns': total_columns,  # Pass the total column count to the template
+#         'net_liquidity_gap': net_liquidity_gap,
+#         'net_gap_percentage': net_gap_percentage,
+#         'cumulative_gap': cumulative_gap,
+#     }
+
+#     return render(request, 'ALM_APP/reports/liquidity_gap_report.html', context)
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 
 
@@ -473,10 +717,11 @@ class ProcessDeleteView(DeleteView):
 def project_cash_flows_view(request):
     process_name='Blessmoe'
     fic_mis_date = '2024-08-31'
+    status = populate_dim_dates_from_time_buckets(fic_mis_date)
     # status=populate_dim_product(fic_mis_date)
     # status= aggregate_by_prod_code(fic_mis_date, process_name)
     # status=update_date(fic_mis_date)
-    status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
+    # status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
     # status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
     # status= aggregate_cashflows_to_product_level(fic_mis_date)
     # status= project_cash_flows(fic_mis_date)       

@@ -43,6 +43,9 @@ urlpatterns = [
     path('processes/<int:pk>/edit/', ProcessUpdateView.as_view(), name='process_update'),
     path('processes/<int:pk>/delete/', ProcessDeleteView.as_view(), name='process_delete'),
 
+    # Reports URLs
+    path('reports/liquidity-gap/', views.liquidity_gap_report, name='liquidity_gap_report'),
+
 
 
 

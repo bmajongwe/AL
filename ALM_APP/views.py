@@ -478,6 +478,7 @@ from .models import LiquidityGapResultsBase
 from .forms import LiquidityGapReportFilterForm
 from .Functions.liquidity_gap_utils import *
 from django.contrib import messages
+from collections import defaultdict
 
 def liquidity_gap_report(request):
     # Initialize the form with GET parameters
@@ -504,41 +505,74 @@ def liquidity_gap_report(request):
     queryset = filter_queryset_by_form(form, queryset)
     queryset = queryset.filter(fic_mis_date=fic_mis_date)
 
-    # Prepare inflow and outflow data
-    inflow_data, outflow_data = prepare_inflow_outflow_data(queryset)
+    # Group data by currency
+    currency_data = defaultdict(lambda: {
+        'inflow_data': {}, 'outflow_data': {},
+        'net_liquidity_gap': {}, 'net_gap_percentage': {}, 'cumulative_gap': {},
+        'first_inflow_product': None, 'remaining_inflow_data': {},
+        'first_outflow_product': None, 'remaining_outflow_data': {}
+    })
 
-    # Separate the first item of inflow and outflow data for easy access in the template
-    first_inflow_product, remaining_inflow_data = None, inflow_data.copy()
-    first_outflow_product, remaining_outflow_data = None, outflow_data.copy()
+    currencies = queryset.values_list('v_ccy_code', flat=True).distinct()
+    for currency in currencies:
+        # Filter by currency
+        currency_queryset = queryset.filter(v_ccy_code=currency)
 
-    if inflow_data:
-        first_inflow_product = list(inflow_data.items())[0]
-        remaining_inflow_data.pop(first_inflow_product[0], None)
+        # Prepare inflow and outflow data for each currency
+        inflow_data, outflow_data = prepare_inflow_outflow_data(currency_queryset)
 
-    if outflow_data:
-        first_outflow_product = list(outflow_data.items())[0]
-        remaining_outflow_data.pop(first_outflow_product[0], None)
+        # Calculate totals for inflows, outflows, net liquidity gap, and cumulative gap
+        net_liquidity_gap, net_gap_percentage, cumulative_gap = calculate_totals(date_buckets, inflow_data, outflow_data)
 
-    # Calculate total inflows, outflows, net liquidity gap, and cumulative gap
-    net_liquidity_gap, net_gap_percentage, cumulative_gap = calculate_totals(date_buckets, inflow_data, outflow_data)
+        # Calculate horizontal totals for each product in inflows and outflows
+        for product, buckets in inflow_data.items():
+            inflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
 
-    # Calculate horizontal totals for each product in inflows and outflows
-    for product, buckets in inflow_data.items():
-        inflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
+        for product, buckets in outflow_data.items():
+            outflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
 
-    for product, buckets in outflow_data.items():
-        outflow_data[product]['total'] = sum(buckets.get(bucket['bucket_number'], 0) for bucket in date_buckets)
+        # Calculate horizontal totals for net liquidity gap, net gap percentage, and cumulative gap
+        net_liquidity_gap['total'] = sum(net_liquidity_gap.get(bucket['bucket_number'], 0) for bucket in date_buckets)
+        net_gap_percentage['total'] = (
+            sum(net_gap_percentage.get(bucket['bucket_number'], 0) for bucket in date_buckets) / len(date_buckets)
+        ) if len(date_buckets) > 0 else 0
 
-    # Calculate horizontal totals for net liquidity gap, net gap percentage, and cumulative gap
-    net_liquidity_gap['total'] = sum(net_liquidity_gap[bucket['bucket_number']] for bucket in date_buckets)
-    net_gap_percentage['total'] = sum(net_gap_percentage[bucket['bucket_number']] for bucket in date_buckets) / len(date_buckets)
+        # Safely access the last item for cumulative gap
+        last_bucket = date_buckets.last()
+        if last_bucket:
+            cumulative_gap['total'] = cumulative_gap.get(last_bucket['bucket_number'], 0)
+        else:
+            cumulative_gap['total'] = 0
 
-    # Safely access the last item for cumulative gap
-    last_bucket = date_buckets.last()
-    if last_bucket:
-        cumulative_gap['total'] = cumulative_gap[last_bucket['bucket_number']]
-    else:
-        cumulative_gap['total'] = 0
+        # Separate the first item of inflow and outflow data for easy access in the template
+        if inflow_data:
+            first_inflow_product = list(inflow_data.items())[0]
+            remaining_inflow_data = inflow_data.copy()
+            remaining_inflow_data.pop(first_inflow_product[0], None)
+        else:
+            first_inflow_product = None
+            remaining_inflow_data = {}
+
+        if outflow_data:
+            first_outflow_product = list(outflow_data.items())[0]
+            remaining_outflow_data = outflow_data.copy()
+            remaining_outflow_data.pop(first_outflow_product[0], None)
+        else:
+            first_outflow_product = None
+            remaining_outflow_data = {}
+
+        # Store calculated data for each currency
+        currency_data[currency].update({
+            'inflow_data': inflow_data,
+            'outflow_data': outflow_data,
+            'first_inflow_product': first_inflow_product,
+            'remaining_inflow_data': remaining_inflow_data,
+            'first_outflow_product': first_outflow_product,
+            'remaining_outflow_data': remaining_outflow_data,
+            'net_liquidity_gap': net_liquidity_gap,
+            'net_gap_percentage': net_gap_percentage,
+            'cumulative_gap': cumulative_gap,
+        })
 
     # Calculate total columns (date buckets + 2 for "Account Type" and "Product")
     total_columns = len(date_buckets) + 3  # Adding one more for "Total" column
@@ -548,18 +582,12 @@ def liquidity_gap_report(request):
         'form': form,
         'fic_mis_date': fic_mis_date,
         'date_buckets': date_buckets,
-        'first_inflow_product': first_inflow_product,
-        'remaining_inflow_data': remaining_inflow_data,
-        'first_outflow_product': first_outflow_product,
-        'remaining_outflow_data': remaining_outflow_data,
-        'currency_code': "BWP",  # Example currency code
+        'currency_data': dict(currency_data),  # Convert defaultdict to dict for template rendering
         'total_columns': total_columns,
-        'net_liquidity_gap': net_liquidity_gap,
-        'net_gap_percentage': net_gap_percentage,
-        'cumulative_gap': cumulative_gap,
     }
 
     return render(request, 'ALM_APP/reports/liquidity_gap_report.html', context)
+
 
 
 

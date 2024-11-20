@@ -46,6 +46,8 @@ urlpatterns = [
     # Reports URLs
     path('reports/liquidity-gap/', views.liquidity_gap_report, name='liquidity_gap_report'),
     path('export/liquidity-gap/', export_liquidity_gap_to_excel, name='export_liquidity_gap_to_excel'),
+    path('export/liquidity-gap-cons/', views.export_liquidity_gap_cons_to_excel, name='export_liquidity_gap_cons_to_excel'),
+
 
 
 

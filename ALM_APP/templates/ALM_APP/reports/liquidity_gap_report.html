@@ -176,7 +176,18 @@
 
         
     {% endfor %}
-
+    <div style="text-align: right; margin: 10px;">
+        <form method="get" action="{% url 'export_liquidity_gap_to_excel' %}">
+            <input type="hidden" name="fic_mis_date" value="{{ fic_mis_date }}">
+            {% for key, value in request.GET.items %}
+                {% if key != 'fic_mis_date' %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="apply-button">Export to Excel</button>
+        </form>
+    </div>
+    
     <script>
         function updateRowsPerPage() {
             const rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);

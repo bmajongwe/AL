@@ -720,3 +720,31 @@ class LiquidityGapResultsBase(models.Model):
 
 
 
+class LiquidityGapResultsCons(models.Model):
+    fic_mis_date = models.DateField()  # Ensure this exists
+    process_name = models.CharField(max_length=100)  # Ensure this exists
+    account_type = models.CharField(max_length=20)
+    v_prod_type = models.CharField(max_length=255)
+    v_prod_code = models.CharField(max_length=50)
+    v_ccy_code = models.CharField(max_length=10)
+    bucket_number = models.IntegerField()  # New field for bucket number
+    bucket_start_date = models.DateField()
+    bucket_end_date = models.DateField()
+    inflows = models.DecimalField(max_digits=20, decimal_places=2)
+    outflows = models.DecimalField(max_digits=20, decimal_places=2)
+    net_liquidity_gap = models.DecimalField(max_digits=20, decimal_places=2)
+    cumulative_gap = models.DecimalField(max_digits=20, decimal_places=2)
+    # New fields
+    v_product_name = models.CharField(max_length=255, null=True, blank=True)  # Product name from Dim_Product
+    v_prod_type_desc = models.CharField(max_length=255, null=True, blank=True)  # Product type description
+    v_loan_type = models.CharField(max_length=50, null=True, blank=True)  # Loan type from Aggregated_Prod_Cashflow_Base
+    n_total_cash_flow_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Total cash flow amount
+    n_total_principal_payment = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Total principal payment
+    n_total_interest_payment = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Total interest payment
+
+
+    class Meta:
+        db_table = 'liquidity_gap_results_cons'
+
+
+

@@ -13,6 +13,10 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.conf import settings
 
+
+from .Functions.data import *
+
+from .Functions.Operations import *
 from .forms import *
 from datetime import datetime
 from django.http import HttpResponse
@@ -401,7 +405,7 @@ def process_create_view(request):
 
 
 
-def execute_process_view(request):
+def execute_alm_process_view(request):
     if request.method == 'POST':
         process_id = request.POST.get('process_id')
         fic_mis_date = request.POST.get('fic_mis_date')
@@ -484,6 +488,7 @@ from .models import LiquidityGapResultsBase, LiquidityGapResultsCons
 from .forms import LiquidityGapReportFilterForm
 from .Functions.liquidity_gap_utils import *
 from django.contrib import messages
+from django.db.models import Sum, F
 from collections import defaultdict
 
 def liquidity_gap_report(request):
@@ -508,9 +513,38 @@ def liquidity_gap_report(request):
         messages.error(request, "No date buckets available for the selected filters.")
         return render(request, 'ALM_APP/reports/liquidity_gap_report.html', {'form': form})
 
+    # Check if this is a drill-down request
+    drill_down_product = request.GET.get('drill_down_product', None)
+
     # Filter base and consolidated querysets by form fields
     base_queryset = filter_queryset_by_form(form, base_queryset).filter(fic_mis_date=fic_mis_date)
     cons_queryset = filter_queryset_by_form(form, cons_queryset).filter(fic_mis_date=fic_mis_date)
+
+    # Prepare drill-down details if required
+    drill_down_details = None
+    if drill_down_product:
+        drill_down_details = list(
+            base_queryset.filter(v_prod_type=drill_down_product)
+            .values('account_type', 'v_prod_code', 'v_product_name', 'bucket_number')
+            .annotate(
+                inflows_total=Sum('inflows'),
+                outflows_total=Sum('outflows'),
+                total=Sum(F('inflows') - F('outflows'))
+            )
+        )
+        
+        # Filter out rows with zero values across buckets and total
+        filtered_details = []
+        for detail in drill_down_details:
+            # Check if any bucket value or the total is non-zero
+            has_non_zero_value = any(
+                detail.get(f'bucket_{bucket["bucket_number"]}', 0) != 0 for bucket in date_buckets
+            ) or detail.get('total', 0) != 0
+
+            if has_non_zero_value:
+                filtered_details.append(detail)
+        
+        drill_down_details = filtered_details
 
     # Prepare base results
     currency_data = defaultdict(lambda: {
@@ -524,6 +558,10 @@ def liquidity_gap_report(request):
     for currency in currencies:
         # Filter by currency
         currency_queryset = base_queryset.filter(v_ccy_code=currency)
+
+        if drill_down_product:
+            # Filter by the drill-down product type if applicable
+            currency_queryset = currency_queryset.filter(v_prod_type=drill_down_product)
 
         # Prepare inflow and outflow data for each currency
         inflow_data, outflow_data = prepare_inflow_outflow_data(currency_queryset)
@@ -621,15 +659,11 @@ def liquidity_gap_report(request):
         'currency_data': dict(currency_data),  # Convert defaultdict to dict for template rendering
         'cons_data': cons_data,  # Consolidated data
         'total_columns': len(date_buckets) + 3,
+        'drill_down_product': drill_down_product,  # Pass the drill-down product to the template
+        'drill_down_details': drill_down_details,  # Pass the filtered drill-down data to the template
     }
 
     return render(request, 'ALM_APP/reports/liquidity_gap_report.html', context)
-
-
-
-
-
-
 
 
 
@@ -667,10 +701,12 @@ from .Functions.liquidity_gap_utils import filter_queryset_by_form, get_date_buc
 def export_liquidity_gap_to_excel(request):
     # Parse the fic_mis_date from request
     raw_fic_mis_date = request.GET.get('fic_mis_date')
-    try:
-        fic_mis_date = datetime.strptime(raw_fic_mis_date, "%b. %d, %Y").date()
-    except ValueError:
-        return HttpResponseBadRequest("Invalid date format. Expected format: 'Aug. 31, 2024'.")
+    fic_mis_date = parse_date(raw_fic_mis_date)
+
+    if not fic_mis_date:
+        return HttpResponseBadRequest(
+            "Invalid date format. Supported formats: 'Aug. 31, 2024', 'August 31, 2024', '2024-08-31', '31-08-2024', '31/08/2024', '08/31/2024'."
+        )
 
     # Query data filtered by fic_mis_date
     queryset = LiquidityGapResultsBase.objects.filter(fic_mis_date=fic_mis_date)
@@ -812,6 +848,26 @@ def export_liquidity_gap_to_excel(request):
 
 
 
+from datetime import datetime
+
+def parse_date(date_str):
+    """
+    Parse the date string to handle multiple formats.
+    """
+    date_formats = [
+        "%b. %d, %Y",    # 'Aug. 31, 2024'
+        "%B %d, %Y",     # 'August 31, 2024'
+        "%Y-%m-%d",      # '2024-08-31'
+        "%d-%m-%Y",      # '31-08-2024'
+        "%d/%m/%Y",      # '31/08/2024'
+        "%m/%d/%Y"       # '08/31/2024'
+    ]
+    for date_format in date_formats:
+        try:
+            return datetime.strptime(date_str, date_format).date()
+        except ValueError:
+            continue
+    return None
 
 
 
@@ -826,10 +882,12 @@ from .Functions.liquidity_gap_utils import filter_queryset_by_form, get_date_buc
 def export_liquidity_gap_cons_to_excel(request):
     # Parse the fic_mis_date from request
     raw_fic_mis_date = request.GET.get('fic_mis_date')
-    try:
-        fic_mis_date = datetime.strptime(raw_fic_mis_date, "%b. %d, %Y").date()
-    except ValueError:
-        return HttpResponseBadRequest("Invalid date format. Expected format: 'Aug. 31, 2024'.")
+    fic_mis_date = parse_date(raw_fic_mis_date)
+
+    if not fic_mis_date:
+        return HttpResponseBadRequest(
+            "Invalid date format. Supported formats: 'Aug. 31, 2024', 'August 31, 2024', '2024-08-31', '31-08-2024', '31/08/2024', '08/31/2024'."
+        )
 
     # Query data filtered by fic_mis_date
     queryset = LiquidityGapResultsCons.objects.filter(fic_mis_date=fic_mis_date)
@@ -1114,11 +1172,11 @@ def export_liquidity_gap_cons_to_excel(request):
 def project_cash_flows_view(request):
     process_name='Blessmoe'
     fic_mis_date = '2024-08-31'
-    status = populate_dim_dates_from_time_buckets(fic_mis_date)
+    # status = populate_dim_dates_from_time_buckets(fic_mis_date)
     # status=populate_dim_product(fic_mis_date)
     # status= aggregate_by_prod_code(fic_mis_date, process_name)
     # status=update_date(fic_mis_date)
-    # status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
+    status=populate_liquidity_gap_results_base(fic_mis_date, process_name)
     # status= calculate_time_buckets_and_spread(process_name, fic_mis_date)
     # status= aggregate_cashflows_to_product_level(fic_mis_date)
     # status= project_cash_flows(fic_mis_date)       
@@ -1131,4 +1189,41 @@ def project_cash_flows_view(request):
 
 
 
+def dashboard_view(request):
+    # Example data for financial graphs
+    mis_date = '2024-07-31'  # Input date in 'YYYY-MM-DD' format
+    #perform_interpolation(mis_date) 
+    #project_cash_flows(mis_date)
+    #update_cash_flows_with_ead(mis_date)
+    # # #Insert records into FCT_Stage_Determination with the numeric date
+    #insert_fct_stage(mis_date)
+    # # #determine stage
+    #update_stage(mis_date)
+    #process_cooling_period_for_accounts(mis_date)
+    #update_stage_determination(mis_date)
+    #update_stage_determination_accrued_interest_and_ead(mis_date)
+    #update_stage_determination_eir(mis_date)
+    #update_lgd_for_stage_determination_term_structure(mis_date)
+    #calculate_pd_for_accounts(mis_date)
+    #insert_cash_flow_data(mis_date)
+    #update_financial_cash_flow(mis_date)
+    #update_cash_flow_with_pd_buckets(mis_date)
+    #update_marginal_pd(mis_date)
+    #calculate_expected_cash_flow(mis_date)
+    #calculate_discount_factors(mis_date)
+    #calculate_cashflow_fields(mis_date)
+    #calculate_forward_loss_fields(mis_date)
+    #populate_fct_reporting_lines(mis_date)
+    #calculate_ecl_based_on_method(mis_date)
+    #update_reporting_lines_with_exchange_rate(mis_date)
 
+    return render(request, 'dashboard.html')
+
+
+@login_required
+def ifrs9_home_view(request):
+    context = {
+        'title': ' Home',
+        # You can pass any additional context if needed
+    }
+    return render(request, 'ifrs9_home.html', context)

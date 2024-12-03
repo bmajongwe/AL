@@ -39,6 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ALM_APP',
+    'User',
+    'crispy_forms',
+    'crispy_bootstrap4',
 ]
 
 MIDDLEWARE = [
@@ -50,6 +53,20 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
+AUTH_USER_MODEL = 'User.CustomUser'
+LOGIN_URL = '/login/'  # Or use the named URL like 'login' if you have defined it in your URL patterns
+
+# Set session expiration age (in seconds)
+SESSION_COOKIE_AGE = 3600  # 1 hour (60 minutes * 60 seconds)
+
+# Enable session expiration on browser close
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Optionally enable sessions to expire based on user inactivity
+SESSION_SAVE_EVERY_REQUEST = True
+
 
 ROOT_URLCONF = 'ALM.urls'
 

@@ -2,6 +2,10 @@
 from django.urls import path
 from . import views 
 from .views import *
+from .views import *
+from .Functions.data import *
+
+from .Functions.Operations import *
 
 
 
@@ -37,9 +41,9 @@ urlpatterns = [
     path('filters/<int:pk>/', views.ProductFilterDetailView.as_view(), name='product_filter_detail'),
 
     # Process URLs
-    path('processes/', ProcessListView.as_view(), name='process_list'),
+    path('processes/', ProcessListView.as_view(), name='processes_list'),
     path('processes/create/', views.process_create_view, name='process_create'),
-    path('processes/execute/', views.execute_process_view, name='execute_process'),
+    path('processes/execute/', views.execute_alm_process_view, name='execute_process'),
     path('processes/<int:pk>/edit/', ProcessUpdateView.as_view(), name='process_update'),
     path('processes/<int:pk>/delete/', ProcessDeleteView.as_view(), name='process_delete'),
 
@@ -49,6 +53,47 @@ urlpatterns = [
     path('export/liquidity-gap-cons/', views.export_liquidity_gap_cons_to_excel, name='export_liquidity_gap_cons_to_excel'),
 
 
+
+
+
+
+
+
+
+path('', dashboard_view, name='dashboard'),
+    path('ifrs9-home-list/', views.ifrs9_home_view, name='ifrs9_home'),
+    path('data_management/', views.data_management, name='data_management'),
+    path('upload/', FileUploadView.as_view(), name='file_upload'),
+    path('select_columns/', ColumnSelectionView.as_view(), name='select_columns'),
+    path('map_columns/', ColumnMappingView.as_view(), name='map_columns'),
+    path('submit_to_database/', SubmitToDatabaseView.as_view(), name='submit_to_database'),
+    path('upload/progress/', CheckProgressView.as_view(), name='check_progress'),
+    path('data-entry/', data_entry_view, name='data_entry'),
+    path('get_fic_mis_dates/', views.get_fic_mis_dates, name='get_fic_mis_dates'),
+    path('view-data/', view_data, name='view_data'),
+    path('filter-table/', filter_table, name='filter_table'),
+    path('download-data/<str:table_name>/', download_data, name='download_data'),
+    path('edit-row/<str:table_name>/<int:row_id>/', edit_row, name='edit_row'),
+    path('delete-row/<str:table_name>/<int:row_id>/', delete_row, name='delete_row'),
+
+
+
+
+    path('operations/', views.operations_view, name='operations'),
+    path('process/', views.process_list, name='process_list'),
+    path('process/<int:process_id>/', views.process_detail, name='process_detail'),
+    path('process/create/', views.create_process, name='create_process'),
+    path('edit_process/<int:process_id>/', views.edit_process, name='edit_process'),
+    path('process/delete/<int:process_id>/', views.delete_process, name='delete_process'),
+    path('process/execute/', views.execute_process_view, name='execute_process_view'),
+    path('process/run/', views.run_process_execution, name='run_process_execution'),
+    path('ajax/get_process_functions/<int:process_id>/', views.get_process_functions, name='get_process_functions'),
+    path('process/monitor/', views.monitor_running_process_view, name='monitor_running_process_view'),
+    path('ajax/get_process_function_status/<str:process_run_id>/', views.get_process_function_status, name='get_process_function_status'),
+    path('process/monitor/<str:process_run_id>/', views.monitor_specific_process, name='monitor_specific_process'),
+    path('get-updated-status-table/', views.get_updated_status_table, name='get_updated_status_table'),
+    path('running-processes/', running_processes_view, name='running_processes'),
+    path('cancel-process/<str:process_run_id>/', cancel_running_process, name='cancel_running_process'),
 
 
 

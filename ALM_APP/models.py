@@ -94,6 +94,90 @@ class TimeBuckets(models.Model):
 
 
 
+
+
+
+
+
+
+
+class Function(models.Model):
+    function_name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'dim_function'
+
+    def __str__(self):
+        return self.function_name
+
+class Process_Rn(models.Model):
+    process_name = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'dim_process'
+
+    def __str__(self):
+        return self.process_name
+
+class TableMetadata(models.Model):
+    TABLE_TYPE_CHOICES = [('FACT', 'Fact Table'),('DIM', 'Dimension Table'),('REF', 'Reference Table'),('STG', 'Staging Table'),('OTHER', 'Other'),]
+    table_name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(null=True, blank=True)
+    table_type = models.CharField(max_length=10, choices=TABLE_TYPE_CHOICES, default='OTHER')
+
+    class Meta:
+        db_table = "TableMetadata"
+class FunctionExecutionStatus(models.Model):
+    process = models.ForeignKey(Process_Rn, on_delete=models.CASCADE)
+    function = models.ForeignKey(Function, on_delete=models.CASCADE)
+    execution_start_date = models.DateTimeField(auto_now_add=True)  # Renamed from execution_date to execution_start_date
+    execution_end_date = models.DateTimeField(null=True, blank=True)  # New field for when the function finishes execution
+    duration = models.DurationField(null=True, blank=True)
+    execution_order = models.PositiveIntegerField(null=True)
+    reporting_date = models.DateField(null=True)
+    status = models.CharField(max_length=20, choices=[('Pending', 'Pending'), ('Ongoing', 'Ongoing'), ('Success', 'Success'), ('Failed', 'Failed')], default='Pending')
+    
+    # Track process execution instances
+    process_run_id = models.CharField(max_length=50)  # Combined process_id, execution_date, and run_count
+    run_count = models.PositiveIntegerField()  # Tracks how many times this process has been executed on a particular date
+
+    class Meta:
+        db_table = 'dim_function_execution_status'
+        ordering = ['run_count', 'execution_start_date']
+        constraints = [
+            models.UniqueConstraint(fields=['execution_start_date', 'process_run_id','function'], name='unique_execution_process')
+        ]
+      
+
+    def __str__(self):
+        return f"{self.process.process_name} - {self.function.function_name} - {self.status}"
+    
+    
+
+
+class RunProcess(models.Model):
+    process = models.ForeignKey(Process_Rn, on_delete=models.CASCADE, related_name='run_processes')
+    function = models.ForeignKey(Function, on_delete=models.CASCADE)
+    order = models.PositiveIntegerField()  # Order in which the function will be executed
+
+    class Meta:
+        ordering = ['order']  # Ensures the functions are executed in the specified order
+        db_table = 'dim_process_dtl'
+
+    def __str__(self):
+        return f"{self.process.process_name} - {self.function.function_name} - Order: {self.order}"
+
+
+
+
+
+
+
+
+
+
 class Ldn_Financial_Instrument(models.Model):
     fic_mis_date = models.DateField(null=True)
     v_account_number = models.CharField(max_length=255, unique=True, null=False)

@@ -24,6 +24,18 @@ def lookup(dict_data, key):
     except Exception:
         return "0.00"
     
+    
+
+@register.filter
+def get_bucket_value(detail, bucket_number):
+    """
+    Retrieves the value for a specific bucket from the detail object.
+    Expects detail['buckets'] to be a dictionary.
+    """
+    try:
+        return detail['buckets'].get(bucket_number, 0)
+    except KeyError:
+        return 0
 # @register.filter
 # def lookup(dictionary, key):
 #     return dictionary.get(key, "")

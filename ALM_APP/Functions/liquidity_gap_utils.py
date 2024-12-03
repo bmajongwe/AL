@@ -36,39 +36,77 @@ def filter_queryset_by_form(form, queryset):
 
     return queryset
 
-def prepare_inflow_outflow_data(queryset):
-    inflow_products = queryset.filter(account_type="Inflow").values('v_prod_type', 'bucket_number').annotate(total=Sum('inflows'))
-    outflow_products = queryset.filter(account_type="Outflow").values('v_prod_type', 'bucket_number').annotate(total=Sum('outflows'))
+def prepare_inflow_outflow_data(queryset, group_by='v_prod_type'):
+    """
+    Prepare inflow and outflow data, grouped either by product type (default) or product name.
+    """
+    inflow_products = (
+        queryset.filter(account_type="Inflow")
+        .values(group_by, 'bucket_number')
+        .annotate(total=Sum('inflows'))
+    )
+    outflow_products = (
+        queryset.filter(account_type="Outflow")
+        .values(group_by, 'bucket_number')
+        .annotate(total=Sum('outflows'))
+    )
 
     inflow_data = {}
     outflow_data = {}
 
+    # Process inflow data
     for item in inflow_products:
-        prod_type = item['v_prod_type']
+        group = item[group_by]
         bucket = item['bucket_number']
         total = item['total']
-        inflow_data.setdefault(prod_type, {})[bucket] = total
+        if group not in inflow_data:
+            inflow_data[group] = {}
+        inflow_data[group][bucket] = total
+        inflow_data[group]['total'] = inflow_data[group].get('total', 0) + total
 
+    # Process outflow data
     for item in outflow_products:
-        prod_type = item['v_prod_type']
+        group = item[group_by]
         bucket = item['bucket_number']
         total = item['total']
-        outflow_data.setdefault(prod_type, {})[bucket] = total
+        if group not in outflow_data:
+            outflow_data[group] = {}
+        outflow_data[group][bucket] = total
+        outflow_data[group]['total'] = outflow_data[group].get('total', 0) + total
 
     return inflow_data, outflow_data
 
+
 def calculate_totals(date_buckets, inflow_data, outflow_data):
+    """
+    Calculate net liquidity gap, net gap percentage, and cumulative gap based on inflow and outflow data.
+    """
     total_inflows_by_bucket = {}
     total_outflows_by_bucket = {}
 
+    # Calculate total inflows and outflows for each bucket
     for bucket in date_buckets:
         bucket_number = bucket['bucket_number']
-        total_inflows_by_bucket[bucket_number] = sum(inflow_data.get(prod, {}).get(bucket_number, 0) for prod in inflow_data)
-        total_outflows_by_bucket[bucket_number] = sum(outflow_data.get(prod, {}).get(bucket_number, 0) for prod in outflow_data)
+        total_inflows_by_bucket[bucket_number] = sum(
+            inflow_data.get(group, {}).get(bucket_number, 0) for group in inflow_data
+        )
+        total_outflows_by_bucket[bucket_number] = sum(
+            outflow_data.get(group, {}).get(bucket_number, 0) for group in outflow_data
+        )
 
-    net_liquidity_gap = {bucket: total_inflows_by_bucket[bucket] - total_outflows_by_bucket[bucket] for bucket in total_inflows_by_bucket}
-    net_gap_percentage = {bucket: (net_liquidity_gap[bucket] / total_outflows_by_bucket[bucket] * 100) if total_outflows_by_bucket[bucket] else 0 for bucket in total_outflows_by_bucket}
+    # Calculate net liquidity gap and percentage
+    net_liquidity_gap = {
+        bucket: total_inflows_by_bucket.get(bucket, 0) - total_outflows_by_bucket.get(bucket, 0)
+        for bucket in total_inflows_by_bucket
+    }
+    net_gap_percentage = {
+        bucket: (net_liquidity_gap[bucket] / total_outflows_by_bucket[bucket] * 100)
+        if total_outflows_by_bucket[bucket]
+        else 0
+        for bucket in total_outflows_by_bucket
+    }
 
+    # Calculate cumulative gap
     cumulative_gap = {}
     cumulative_total = 0
     for bucket in date_buckets:

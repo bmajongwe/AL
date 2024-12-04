@@ -792,6 +792,7 @@ class LiquidityGapResultsBase(models.Model):
     cumulative_gap = models.DecimalField(max_digits=20, decimal_places=2)
     # New fields
     v_product_name = models.CharField(max_length=255, null=True, blank=True)  # Product name from Dim_Product
+    v_product_splits = models.CharField(max_length=255, null=True, blank=True)  # Product splits from Dim_customer
     v_prod_type_desc = models.CharField(max_length=255, null=True, blank=True)  # Product type description
     v_loan_type = models.CharField(max_length=50, null=True, blank=True)  # Loan type from Aggregated_Prod_Cashflow_Base
     n_total_cash_flow_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Total cash flow amount
@@ -820,6 +821,7 @@ class LiquidityGapResultsCons(models.Model):
     cumulative_gap = models.DecimalField(max_digits=20, decimal_places=2)
     # New fields
     v_product_name = models.CharField(max_length=255, null=True, blank=True)  # Product name from Dim_Product
+    v_product_splits = models.CharField(max_length=255, null=True, blank=True)  # Product splits from Dim_customer
     v_prod_type_desc = models.CharField(max_length=255, null=True, blank=True)  # Product type description
     v_loan_type = models.CharField(max_length=50, null=True, blank=True)  # Loan type from Aggregated_Prod_Cashflow_Base
     n_total_cash_flow_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # Total cash flow amount
